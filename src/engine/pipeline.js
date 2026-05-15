@@ -1,0 +1,138 @@
+/**
+ * Pipeline — composable generation as an ordered list of small steps.
+ *
+ * Generation is not a god-class with a dozen methods; it is a sequence of
+ * independently testable steps that pass one accumulating context object
+ * along. New capabilities are new steps, not new branches. The standard
+ * transactional pipeline is:
+ *
+ *   plan → render → validate → commit
+ *
+ * render-to-temp, validate-everything, then atomic-commit — so a syntactically
+ * broken file is caught before anything touches the project.
+ */
+import { FileTransaction, realFs } from "./transaction.js";
+import { Validator } from "./validator.js";
+import { Injector } from "./injector.js";
+
+export class Pipeline {
+  constructor(steps = []) {
+    this.steps = [...steps];
+  }
+
+  /** Append a step. */
+  use(step) {
+    this.steps.push(step);
+    return this;
+  }
+
+  /** Run every step in order, threading `context` through. Returns the context. */
+  async run(context = {}) {
+    for (const step of this.steps) {
+      if (!step || typeof step.run !== "function") {
+        throw new Error(`Pipeline step "${step?.name ?? "?"}" has no run() method`);
+      }
+      await step.run(context);
+    }
+    return context;
+  }
+}
+
+/** Build a named step. */
+export function defineStep(name, run) {
+  return { name, run };
+}
+
+/** Resolve the recipe manifest into a concrete plan for this invocation. */
+export const planStep = defineStep("plan", (context) => {
+  const { recipe, blueprint, projectRoot, recipeContext = {}, vars = {} } = context;
+  if (!recipe) throw new Error("Generation pipeline: context.recipe is required");
+  context.plan = recipe.plan({ context: recipeContext, blueprint, projectRoot, vars });
+});
+
+/** Render each planned file and stage it in a transaction — nothing written yet. */
+export function createRenderStep({ renderer, fs = realFs }) {
+  if (typeof renderer !== "function") {
+    throw new Error("createRenderStep requires a renderer(templatePath, context) function");
+  }
+  return defineStep("render", async (context) => {
+    const { projectRoot, plan, templateContext = {} } = context;
+    const transaction = new FileTransaction({ projectRoot, fs });
+    for (const file of plan.files) {
+      const content = await renderer(file.template, templateContext);
+      transaction.stage(file.out, content);
+    }
+    context.transaction = transaction;
+  });
+}
+
+/**
+ * Render each recipe `inject` snippet and splice it into the project's anchor
+ * files, staging the modified files into the same transaction. Idempotent.
+ */
+export function createInjectStep({ renderer, injector }) {
+  if (typeof renderer !== "function") {
+    throw new Error("createInjectStep requires a renderer(templatePath, context) function");
+  }
+  const inj = injector ?? new Injector();
+  return defineStep("inject", async (context) => {
+    const { plan, blueprint, projectRoot, transaction, templateContext = {} } = context;
+    context.injections = [];
+    for (const entry of plan.inject || []) {
+      const snippet = await renderer(entry.template, templateContext);
+      context.injections.push(
+        inj.inject({ anchorName: entry.anchor, snippet, blueprint, projectRoot, transaction }),
+      );
+    }
+  });
+}
+
+/** Validate every staged file; abort the whole generation on any failure. */
+export function createValidateStep({ validator = new Validator() } = {}) {
+  return defineStep("validate", (context) => {
+    const result = validator.validateAll(context.transaction.staged());
+    context.validation = result;
+    if (!result.ok) {
+      const detail = result.failures.map((f) => `  • ${f.relPath}: ${f.message}`).join("\n");
+      throw new Error(
+        `Generation aborted — ${result.failures.length} file(s) failed validation:\n${detail}`,
+      );
+    }
+  });
+}
+
+/** Commit the transaction — or, in dry-run, just record the plan. */
+export const commitStep = defineStep("commit", (context) => {
+  const { transaction, dryRun } = context;
+  context.result = dryRun
+    ? { dryRun: true, files: transaction.plan() }
+    : { dryRun: false, files: transaction.commit() };
+});
+
+/**
+ * Compose the standard transactional generation pipeline:
+ *   plan → render → inject → validate → commit
+ * Rendering is injected so the engine never depends on a specific template
+ * library. Pass `withInject: false` to skip anchor injection (e.g. recipes that
+ * only emit standalone files, or tests exercising render/commit in isolation).
+ * @param {object} args
+ * @param {(templatePath:string, context:object) => Promise<string>|string} args.renderer
+ * @param {Validator} [args.validator]
+ * @param {Injector} [args.injector]
+ * @param {typeof realFs} [args.fs]
+ * @param {boolean} [args.withInject=true]
+ */
+export function createGenerationPipeline({
+  renderer,
+  validator,
+  injector,
+  fs = realFs,
+  withInject = true,
+} = {}) {
+  const steps = [planStep, createRenderStep({ renderer, fs })];
+  if (withInject) {
+    steps.push(createInjectStep({ renderer, injector: injector ?? new Injector({ fs }) }));
+  }
+  steps.push(createValidateStep({ validator }), commitStep);
+  return new Pipeline(steps);
+}

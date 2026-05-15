@@ -1,0 +1,46 @@
+import { useState, useEffect, useCallback } from 'react';
+import api from '../api/<%= resource.kebabName %>.api';
+
+/**
+ * use<%= resource.pascalName %> hook
+ * Handles data fetching and state for <%= resource.name %> resource
+ */
+export const use<%= resource.pascalName %> = (id = null) => {
+  const [data, setData] = useState(id ? null : []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchAll = useCallback(async (params) => {
+    setLoading(true);
+    try {
+      const res = await api.getAll(params);
+      setData(res.data);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchOne = useCallback(async (uid) => {
+    setLoading(true);
+    try {
+      const res = await api.getById(uid);
+      setData(res.data);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      fetchOne(id);
+    } else {
+      fetchAll();
+    }
+  }, [id, fetchOne, fetchAll]);
+
+  return { data, loading, error, refresh: id ? () => fetchOne(id) : fetchAll };
+};

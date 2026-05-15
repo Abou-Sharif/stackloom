@@ -1,0 +1,71 @@
+const request = require('supertest');
+const app = require('../../../app'); // Correct path: up to tests, kebabDir, modules, src/app
+const mongoose = require('mongoose');
+const <%= resource.pascalName %>Model = require('../models/<%= resource.name %>');
+
+describe('<%= resource.pascalName %> API', () => {
+  let testId;
+
+  beforeAll(async () => {
+    // Ensure DB connection if needed
+  });
+
+  afterAll(async () => {
+    await <%= resource.pascalName %>Model.deleteMany({});
+  });
+
+  test('POST /api/<%= resource.pluralKebab %> - should create <%= resource.name.toLowerCase() %>', async () => {
+    const payload = { 
+      <% resource.fields.filter(f => !['createdAt', 'updatedAt', '_id'].includes(f.name)).forEach(f => { %>
+      <%= f.name %>: <% if (f.type === 'number') { %>100<% } else if (f.type === 'boolean') { %>true<% } else if (f.type === 'date') { %>new Date()<% } else { %>'test-<%= f.name %>'<% } %>,
+      <% }); %>
+    };
+
+    const res = await request(app)
+      .post('/api/<%= resource.pluralKebab %>')
+      .send(payload)
+      .expect(201);
+
+    expect(res.body.data).toHaveProperty('_id');
+    testId = res.body.data._id;
+  });
+
+  test('GET /api/<%= resource.pluralKebab %> - should list <%= resource.pluralKebab %>', async () => {
+    const res = await request(app)
+      .get('/api/<%= resource.pluralKebab %>')
+      .expect(200);
+
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  test('GET /api/<%= resource.pluralKebab %>/:id - should get one <%= resource.name.toLowerCase() %>', async () => {
+    const res = await request(app)
+      .get(`/api/<%= resource.pluralKebab %>/${testId}`)
+      .expect(200);
+
+    expect(res.body.data).toHaveProperty('_id', testId);
+  });
+
+  test('PUT /api/<%= resource.pluralKebab %>/:id - should update <%= resource.name.toLowerCase() %>', async () => {
+    const res = await request(app)
+      .put(`/api/<%= resource.pluralKebab %>/${testId}`)
+      .send({ 
+        <% if (resource.fields[0]) { %>
+        <%= resource.fields[0].name %>: 'updated-value'
+        <% } %>
+      })
+      .expect(200);
+
+    expect(res.body.status).toBe('success');
+  });
+
+  test('DELETE /api/<%= resource.pluralKebab %>/:id - should delete <%= resource.name.toLowerCase() %>', async () => {
+    await request(app)
+      .delete(`/api/<%= resource.pluralKebab %>/${testId}`)
+      .expect(200);
+
+    const check = await <%= resource.pascalName %>Model.findById(testId);
+    expect(check).toBeNull();
+  });
+});

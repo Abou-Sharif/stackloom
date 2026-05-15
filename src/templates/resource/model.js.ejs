@@ -1,0 +1,64 @@
+const mongoose = require('mongoose');
+
+// ── Mongoose Field Definitions ──────────────────────────────────────────────
+<% const fields = resource.fields; %>
+const <%= resource.pascalName %>Schema = new mongoose.Schema(
+  {
+<% fields.forEach(function(field) { -%>
+    <%- field.name %>: { <%- field.mongooseDef %> },
+<% }); -%>
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+    toObject: { virtuals: true },
+  }
+);
+
+// ── Indexes ── (text fields indexed for search; unique fields are indexed inline)
+<% fields.forEach(function(field) { -%>
+<% if (field.type === 'text' || field.type === 'richtext') { -%>
+<%= resource.pascalName %>Schema.index({ <%- field.name %>: 'text' });
+<% } -%>
+<% }); -%>
+
+<% if (resource.features.softDelete) { %>
+// Soft delete plugin (adds deletedAt, isDeleted virtual)
+<%= resource.pascalName %>Schema.plugin(require('mongoose-delete'), { deletedAt: true });
+<% } %>
+
+ <% if (resource.relations && resource.relations.hasMany && resource.relations.hasMany.length > 0) { %>
+ // Virtual populate for hasMany relations
+ <% resource.relations.hasMany.forEach(function(rel) { %>
+ <%= resource.pascalName %>Schema.virtual('<%- rel.field %>', {
+   ref: '<%- rel.model %>',
+   localField: '_id',
+   foreignField: '<%- rel.foreignKey || (rel.field + 'Id') %>',
+   justOne: false
+ });
+ <% }); %>
+ <% } %>
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ✎ CUSTOM CODE ZONE — YOUR CODE HERE
+// Add virtuals, methods, statics, plugins below:
+//
+//   <%= resource.pascalName %>Schema.virtual('fullName').get(function() { ... });
+//   <%= resource.pascalName %>Schema.methods.comparePassword = function(candidate) { ... };
+//   <%= resource.pascalName %>Schema.statics.findActive = function() { ... };
+//   <%= resource.pascalName %>Schema.pre('save', function(next) { ... });
+//
+// ────────────────────────────────────────────────────────────────────────────
+
+module.exports = mongoose.model('<%= resource.pascalName %>', <%= resource.pascalName %>Schema);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// END AUTO-GENERATED
+// ═══════════════════════════════════════════════════════════════════════════

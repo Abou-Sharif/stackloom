@@ -1,0 +1,132 @@
+const <%= resource.pascalName %>Model = require('../models/<%= resource.name %>');
+const ApiError = require('../../../utils/ApiError');
+<% if (options.architecture === 'advanced') { -%>
+const mongoose = require('mongoose');
+<% } -%>
+
+// ── Create ───────────────────────────────────────────────────────────────────
+const create<%= resource.pascalName %> = async (payload) => {
+<% resource.fields.forEach(function(f) { -%>
+<% if (['email', 'phone', 'url', 'string', 'text'].includes(f.type)) { -%>
+  if (payload.<%= f.name %>) {
+<% if (f.type === 'email') { -%>
+    payload.<%= f.name %> = payload.<%= f.name %>.toLowerCase().trim();
+<% } else if (f.type === 'phone') { -%>
+    payload.<%= f.name %> = payload.<%= f.name %>.replace(/[^+0-9]/g, '');
+<% } else { -%>
+    payload.<%= f.name %> = payload.<%= f.name %>.trim();
+<% } -%>
+  }
+<% } -%>
+<% }); -%>
+<% var slugField = resource.fields.find(function(f) { return ['slug', 'code', 'sku'].includes(f.name); }); -%>
+<% if (slugField) { -%>
+  if (!payload.<%= slugField.name %> && payload.name) {
+    const slugify = require('slugify');
+    payload.<%= slugField.name %> = slugify(payload.name, { lower: true, strict: true });
+  }
+<% } -%>
+  return <%= resource.pascalName %>Model.create(payload);
+};
+
+// ── List (filters, pagination, sorting) ──────────────────────────────────────
+const getAll<%= resource.pascalName %>s = async (filters = {}) => {
+  let query = <%= resource.pascalName %>Model.find({});
+<% resource.fields.forEach(function(f) { -%>
+<% if (['number', 'date', 'datetime', 'range'].includes(f.type)) { -%>
+  if (filters.<%= f.name %>Min) query = query.where('<%= f.name %>').gte(filters.<%= f.name %>Min);
+  if (filters.<%= f.name %>Max) query = query.where('<%= f.name %>').lte(filters.<%= f.name %>Max);
+<% } else { -%>
+  if (filters.<%= f.name %> !== undefined) query = query.where('<%= f.name %>').equals(filters.<%= f.name %>);
+<% } -%>
+<% }); -%>
+  const page = parseInt(filters.page, 10) || 1;
+  const limit = parseInt(filters.limit, 10) || 20;
+  if (filters.sort) {
+    query = query.sort({ [filters.sort]: filters.order === 'asc' ? 1 : -1 });
+  }
+
+  // Count before pagination so callers can build pagination UI.
+  const total = await <%= resource.pascalName %>Model.countDocuments(query.getFilter());
+  // .lean() — plain objects, not Mongoose documents, for fast list reads.
+  const data = await query.skip((page - 1) * limit).limit(limit).lean().exec();
+  return { data, total, page, limit, pages: Math.ceil(total / limit) };
+};
+
+// ── Get One ──────────────────────────────────────────────────────────────────
+const get<%= resource.pascalName %>ById = async (id) => {
+  const doc = await <%= resource.pascalName %>Model.findById(id);
+  if (!doc) throw new ApiError(404, '<%= resource.name %> not found');
+  return doc;
+};
+
+// ── Update ───────────────────────────────────────────────────────────────────
+const update<%= resource.pascalName %> = async (id, updates) => {
+<% resource.fields.forEach(function(f) { -%>
+<% if (['email', 'phone', 'url', 'string', 'text'].includes(f.type)) { -%>
+  if (updates.<%= f.name %>) {
+<% if (f.type === 'email') { -%>
+    updates.<%= f.name %> = updates.<%= f.name %>.toLowerCase().trim();
+<% } else if (f.type === 'phone') { -%>
+    updates.<%= f.name %> = updates.<%= f.name %>.replace(/[^+0-9]/g, '');
+<% } else { -%>
+    updates.<%= f.name %> = updates.<%= f.name %>.trim();
+<% } -%>
+  }
+<% } -%>
+<% }); -%>
+  const doc = await <%= resource.pascalName %>Model.findByIdAndUpdate(id, updates, {
+    new: true,
+    runValidators: true,
+  });
+  if (!doc) throw new ApiError(404, '<%= resource.name %> not found');
+  return doc;
+};
+
+// ── Delete ───────────────────────────────────────────────────────────────────
+const delete<%= resource.pascalName %> = async (id) => {
+<% if (resource.features && resource.features.softDelete) { -%>
+  const doc = await <%= resource.pascalName %>Model.findByIdAndUpdate(id, { deletedAt: new Date() }, { new: true });
+<% } else { -%>
+  const doc = await <%= resource.pascalName %>Model.findByIdAndDelete(id);
+<% } -%>
+  if (!doc) throw new ApiError(404, '<%= resource.name %> not found');
+  return doc;
+};
+<% if (options.architecture === 'advanced') { -%>
+
+// ── Advanced: batch operations ───────────────────────────────────────────────
+const bulkCreate<%= resource.pascalName %>s = async (items) => {
+  if (!Array.isArray(items)) throw new ApiError(400, 'Items must be an array');
+  return <%= resource.pascalName %>Model.insertMany(items);
+};
+
+const bulkUpdate<%= resource.pascalName %>s = async (updates) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    for (const update of updates) {
+      await <%= resource.pascalName %>Model.findByIdAndUpdate(update.id, update.changes, { session });
+    }
+    await session.commitTransaction();
+    return updates.length;
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
+};
+<% } -%>
+
+module.exports = {
+  create<%= resource.pascalName %>,
+  getAll<%= resource.pascalName %>s,
+  get<%= resource.pascalName %>ById,
+  update<%= resource.pascalName %>,
+  delete<%= resource.pascalName %>,
+<% if (options.architecture === 'advanced') { -%>
+  bulkCreate<%= resource.pascalName %>s,
+  bulkUpdate<%= resource.pascalName %>s,
+<% } -%>
+};

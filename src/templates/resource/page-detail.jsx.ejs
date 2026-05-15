@@ -1,0 +1,55 @@
+import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { use<%= resource.pascalName %> } from "@/hooks/use<%= resource.pascalName %>";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Edit } from "lucide-react";
+import { PageWrapper } from "@/components/layout/PageWrapper";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export default function <%= resource.pascalName %>DetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { data: item, loading, error } = use<%= resource.pascalName %>(id);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error loading <%= resource.name.toLowerCase() %></div>;
+  if (!item) return <div><%= resource.name %> not found</div>;
+
+  return (
+    <PageWrapper 
+      title={`<%= resource.name %> Details`}
+      actions={
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+          <Button onClick={() => navigate(`/admin/<%= resource.kebabName %>/edit/${id}`)}>
+            <Edit className="mr-2 h-4 w-4" /> Edit
+          </Button>
+        </div>
+      }
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Information</CardTitle>
+          </CardHeader>
+           <CardContent className="space-y-2">
+             <% resource.fields.forEach(function(field) { %>
+             <div className="flex justify-between border-b pb-2">
+               <span className="font-medium text-muted-foreground"><%- field.name.charAt(0).toUpperCase() + field.name.slice(1) %></span>
+               <span>{<% if (field.type === 'boolean') { %>
+                 item.<%- field.name %> ? 'Yes' : 'No'
+               <% } else if (field.type === 'date' || field.type === 'datetime') { %>
+                 new Date(item.<%- field.name %>).toLocaleString()
+               <% } else { %>
+                 item.<%- field.name %>
+               <% } %>}</span>
+             </div>
+             <% }); %>
+          </CardContent>
+        </Card>
+      </div>
+    </PageWrapper>
+  );
+}

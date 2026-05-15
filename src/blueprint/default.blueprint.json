@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0",
+  "architecture": {
+    "id": "mern",
+    "name": "MERN Fullstack Starter",
+    "description": "Express + MongoDB API with httpOnly refresh-token auth, React + Vite + Tailwind frontend."
+  },
+  "engine": {
+    "minCliVersion": "0.1.0"
+  },
+  "roots": {
+    "backend": {
+      "detect": ["backend", "api", "server", "be"],
+      "marker": "package.json",
+      "default": "backend"
+    },
+    "frontend": {
+      "detect": ["frontend", "client", "web", "app"],
+      "marker": "src/main.jsx",
+      "default": "frontend"
+    }
+  },
+  "conventions": {
+    "naming": {
+      "module": "kebab",
+      "component": "pascal",
+      "route": "kebab"
+    },
+    "language": {
+      "detect": "typescript",
+      "default": "javascript"
+    }
+  },
+  "paths": {
+    "backend.modules": "{backend}/src/modules",
+    "backend.routesIndex": "{backend}/src/routes/index.js",
+    "backend.validators": "{backend}/src/utils/validators",
+    "frontend.pages": "{frontend}/src/pages",
+    "frontend.adminPages": "{frontend}/src/pages/admin",
+    "frontend.components": "{frontend}/src/components",
+    "frontend.api": "{frontend}/src/api",
+    "frontend.hooks": "{frontend}/src/hooks",
+    "frontend.router": "{frontend}/src/routes/AppRouter.jsx",
+    "frontend.navConfig": "{frontend}/src/config/app-preset.js"
+  },
+  "anchors": {
+    "backend.routes": {
+      "file": "{backend}/src/routes/index.js",
+      "strategy": "before-line",
+      "pattern": "module.exports = router;",
+      "comment": "loom:anchor backend.routes"
+    },
+    "frontend.lazyImports": {
+      "file": "{frontend}/src/routes/AppRouter.jsx",
+      "strategy": "after-last-match",
+      "pattern": "^const \\w+ = lazy\\(.*\\);",
+      "comment": "loom:anchor frontend.lazyImports"
+    },
+    "frontend.routes": {
+      "file": "{frontend}/src/routes/AppRouter.jsx",
+      "strategy": "before-match",
+      "pattern": "<Route\\s+path=\"\\*\"",
+      "comment": "loom:anchor frontend.routes"
+    },
+    "frontend.nav": {
+      "file": "{frontend}/src/config/app-preset.js",
+      "strategy": "array-append",
+      "pattern": "navigation\\s*:\\s*\\[",
+      "comment": "loom:anchor frontend.nav"
+    }
+  },
+  "recipes": {},
+  "presets": {
+    "themes": "{frontend}/src/config/design-themes.js",
+    "layouts": "{frontend}/src/config/design-layouts.js",
+    "dataDisplay": "{frontend}/src/config/data-display-templates.js"
+  }
+}

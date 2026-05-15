@@ -1,0 +1,35 @@
+{
+  "name": "resource",
+  "description": "Full-stack CRUD resource: Mongoose model, service, controller, routes, validator, plus optional admin pages, table/form components, API client and hooks.",
+  "params": {
+    "withFrontend": { "type": "boolean", "default": true, "description": "Generate frontend pages, components, API client and hooks." },
+    "withTests": { "type": "boolean", "default": false, "description": "Generate backend test files." },
+    "architecture": { "type": "string", "default": "moderate", "description": "lightweight | moderate | advanced." },
+    "formMode": { "type": "string", "default": "page", "description": "page | modal | sidepanel | inline — how the create/edit form is mounted." }
+  },
+  "files": [
+    { "template": "resource/model.js.ejs", "out": "{@backend.modules}/{kebab}/models/{Name}.js" },
+    { "template": "resource/service.js.ejs", "out": "{@backend.modules}/{kebab}/services/{Name}.service.js", "when": "architecture != \"lightweight\"" },
+    { "template": "resource/controller.js.ejs", "out": "{@backend.modules}/{kebab}/controllers/{Name}.controller.js" },
+    { "template": "resource/routes.js.ejs", "out": "{@backend.modules}/{kebab}/routes/{Name}.routes.js" },
+    { "template": "resource/validator.js.ejs", "out": "{@backend.validators}/{Name}.validator.js" },
+    { "template": "resource/test.ejs", "out": "{@backend.modules}/{kebab}/tests/{Name}.test.js", "when": "architecture != \"lightweight\" && (withTests || architecture == \"advanced\")" },
+    { "template": "resource/page-{formMode}.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/ListPage.jsx", "when": "withFrontend" },
+    { "template": "resource/page-detail.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/DetailPage.jsx", "when": "withFrontend" },
+    { "template": "resource/page-form.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/FormPage.jsx", "when": "withFrontend && formMode == \"page\"" },
+    { "template": "resource/components/table.jsx.ejs", "out": "{@frontend.components}/tables/{Name}Table.jsx", "when": "withFrontend" },
+    { "template": "resource/components/form.jsx.ejs", "out": "{@frontend.components}/forms/{Name}Form.jsx", "when": "withFrontend" },
+    { "template": "resource/api.js.ejs", "out": "{@frontend.api}/{kebab}.api.js", "when": "withFrontend" },
+    { "template": "resource/hooks.js.ejs", "out": "{@frontend.hooks}/use{Name}.js", "when": "withFrontend" },
+    { "template": "resource/types.ts.ejs", "out": "{frontend}/src/types/{kebab}.types.ts", "when": "withFrontend && usesTypeScript" }
+  ],
+  "inject": [
+    { "anchor": "backend.routes", "template": "snippets/route-mount.ejs" },
+    { "anchor": "frontend.lazyImports", "template": "snippets/lazy-import.ejs", "when": "withFrontend" },
+    { "anchor": "frontend.routes", "template": "snippets/route-entry.ejs", "when": "withFrontend" },
+    { "anchor": "frontend.nav", "template": "snippets/nav-entry.ejs", "when": "withFrontend" }
+  ],
+  "requires": [
+    { "scope": "backend", "package": "slugify", "version": "^1.6.6", "when": "hasField:slug || hasField:code || hasField:sku" }
+  ]
+}

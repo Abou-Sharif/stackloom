@@ -1,0 +1,8 @@
+{
+  "binName": "loom",
+  "displayName": "Stackloom",
+  "description": "Stackloom — weave production-ready full-stack apps from a single command",
+  "tagline": "Weave full-stack apps from a single command",
+  "stateDirName": ".loom",
+  "packageName": "stackloom"
+}
