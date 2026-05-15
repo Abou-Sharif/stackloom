@@ -1,0 +1,30 @@
+import React from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { <%= resource.pascalName %>Form } from "@/components/forms/<%= resource.pascalName %>Form";
+
+export const FormModal = ({ open, onOpenChange, initialData, onSubmit, isLoading }) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{initialData ? 'Edit' : 'Create'} <%= resource.name %></DialogTitle>
+          <DialogDescription>
+            {initialData ? 'Update the details below.' : 'Fill in the details for the new <%= resource.name.toLowerCase() %>.'}
+          </DialogDescription>
+        </DialogHeader>
+        <<%= resource.pascalName %>Form 
+          initialData={initialData} 
+          onSubmit={onSubmit} 
+          onCancel={() => onOpenChange(false)}
+          isLoading={isLoading}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+};

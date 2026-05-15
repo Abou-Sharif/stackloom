@@ -1,0 +1,26 @@
+const Joi = require('joi');
+
+/**
+ * <%= resource.pascalName %> Validation Schemas
+ */
+
+// ── Create Schema ────────────────────────────────────────────────────────────
+ const create<%= resource.pascalName %>Schema = Joi.object({
+   <% resource.fields.forEach(function(field) { %>
+   <%- field.name %>: <%- field.joiRule %>,
+   <% }); %>
+ });
+
+ // ── Update Schema ────────────────────────────────────────────────────────────
+ // Update = Create schema, but fields that aren't required become optional>
+ <% const optionalFields = resource.fields.filter(f => !(f.validation && f.validation.required)); %>
+ const update<%= resource.pascalName %>Schema = create<%= resource.pascalName %>Schema<% if (optionalFields.length > 0) { %>.fork(
+   [<%- optionalFields.map(f => `'${f.name}'`).join(', ') %>],
+   (schema) => schema.optional()
+ )<% } else { %>; // no optional fields: update schema is same as create<% } %>
+
+module.exports = {
+  create<%= resource.pascalName %>Schema,
+  update<%= resource.pascalName %>Schema,
+};
+

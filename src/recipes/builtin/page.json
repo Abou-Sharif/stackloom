@@ -1,0 +1,21 @@
+{
+  "name": "page",
+  "description": "Frontend admin page wired to an existing backend resource: list page plus optional table/form components and API client.",
+  "params": {
+    "withForm": { "type": "boolean", "default": true, "description": "Generate a form component for create/edit." },
+    "withApi": { "type": "boolean", "default": true, "description": "Generate the API client module." },
+    "formMode": { "type": "string", "default": "page", "description": "page | modal | sidepanel | inline — how the form is mounted." }
+  },
+  "files": [
+    { "template": "resource/page-{formMode}.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/ListPage.jsx" },
+    { "template": "resource/components/table.jsx.ejs", "out": "{@frontend.components}/tables/{Name}Table.jsx" },
+    { "template": "resource/components/form.jsx.ejs", "out": "{@frontend.components}/forms/{Name}Form.jsx", "when": "withForm" },
+    { "template": "resource/api.js.ejs", "out": "{@frontend.api}/{kebab}.api.js", "when": "withApi" }
+  ],
+  "inject": [
+    { "anchor": "frontend.lazyImports", "template": "snippets/lazy-import.ejs" },
+    { "anchor": "frontend.routes", "template": "snippets/route-entry.ejs" },
+    { "anchor": "frontend.nav", "template": "snippets/nav-entry.ejs" }
+  ],
+  "requires": []
+}

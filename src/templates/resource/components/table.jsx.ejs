@@ -1,0 +1,68 @@
+import React from 'react';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Edit, Trash2, Eye } from "lucide-react";
+
+export const <%= resource.pascalName %>Table = ({ data, onEdit, onDelete, onView }) => {
+  if (!data || data.length === 0) {
+    return <div className="text-center py-10 text-muted-foreground">No <%= resource.pluralPascal.toLowerCase() %> found.</div>;
+  }
+
+  return (
+    <div className="rounded-md border">
+      <Table>
+         <TableHeader>
+           <TableRow>
+             <% resource.fields.filter(f => f.ui.showInTable !== false).forEach(function(field) { %>
+             <TableHead><%- field.name.charAt(0).toUpperCase() + field.name.slice(1) %></TableHead>
+             <% }); %>
+             <TableHead className="text-right">Actions</TableHead>
+           </TableRow>
+         </TableHeader>
+         <TableBody>
+           {data.map((item) => (
+             <TableRow key={item._id}>
+               <% resource.fields.filter(f => f.ui.showInTable !== false).forEach(function(field) { %>
+               <TableCell>
+                 {<% if (field.type === 'boolean') { %>
+                   item.<%- field.name %> ? 'Yes' : 'No'
+                 <% } else if (field.type === 'date' || field.type === 'datetime') { %>
+                   new Date(item.<%- field.name %>).toLocaleDateString()
+                 <% } else { %>
+                   item.<%- field.name %>
+                 <% } %>}
+               </TableCell>
+               <% }); %>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  {onView && (
+                    <Button variant="ghost" size="icon" onClick={() => onView(item)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onEdit && (
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(item)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+};

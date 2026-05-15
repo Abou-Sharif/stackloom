@@ -1,0 +1,154 @@
+<% if (options.architecture === 'lightweight') { -%>
+// Lightweight architecture — CRUD logic lives inline here; no separate service layer.
+const <%= resource.pascalName %> = require('../models/<%= resource.name %>');
+const ApiResponse = require('../../../utils/ApiResponse');
+const ApiError = require('../../../utils/ApiError');
+
+// ── Create ───────────────────────────────────────────────────────────────────
+const create = async (req, res, next) => {
+  try {
+<% if (resource.features && resource.features.auditLog) { -%>
+    req.body.createdBy = req.user?._id;
+<% } -%>
+    const result = await <%= resource.pascalName %>.create(req.body);
+    return res.status(201).json(new ApiResponse(201, '<%= resource.pascalName %> created', { data: result }).body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// ── List (paginated) ─────────────────────────────────────────────────────────
+const list = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const [data, total] = await Promise.all([
+      <%= resource.pascalName %>.find()
+        .sort({ [req.query.sort || 'createdAt']: req.query.order === 'asc' ? 1 : -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      <%= resource.pascalName %>.countDocuments(),
+    ]);
+    return res.status(200).json(
+      new ApiResponse(200, 'Fetched', { data, total, page, limit, pages: Math.ceil(total / limit) }).body,
+    );
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// ── Get One ──────────────────────────────────────────────────────────────────
+const getOne = async (req, res, next) => {
+  try {
+    const result = await <%= resource.pascalName %>.findById(req.params.id);
+    if (!result) throw new ApiError(404, '<%= resource.pascalName %> not found');
+    return res.status(200).json(new ApiResponse(200, 'Fetched', { data: result }).body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// ── Update ───────────────────────────────────────────────────────────────────
+const update = async (req, res, next) => {
+  try {
+<% if (resource.features && resource.features.auditLog) { -%>
+    req.body.updatedBy = req.user?._id;
+<% } -%>
+    const result = await <%= resource.pascalName %>.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    if (!result) throw new ApiError(404, '<%= resource.pascalName %> not found');
+    return res.status(200).json(new ApiResponse(200, 'Updated', { data: result }).body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// ── Delete ───────────────────────────────────────────────────────────────────
+const remove = async (req, res, next) => {
+  try {
+    const result = await <%= resource.pascalName %>.findByIdAndDelete(req.params.id);
+    if (!result) throw new ApiError(404, '<%= resource.pascalName %> not found');
+    return res.status(200).json(new ApiResponse(200, 'Deleted').body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+module.exports = { create, list, getOne, update, remove };
+<% } else { -%>
+// Layered architecture — the controller is thin; domain logic lives in the service.
+const service = require('../services/<%= resource.name %>.service');
+const ApiResponse = require('../../../utils/ApiResponse');
+
+// ── Create ───────────────────────────────────────────────────────────────────
+const create = async (req, res, next) => {
+  try {
+<% if (resource.features && resource.features.auditLog) { -%>
+    req.body.createdBy = req.user?._id;
+<% } -%>
+    const result = await service.create<%= resource.pascalName %>(req.body);
+    return res.status(201).json(new ApiResponse(201, '<%= resource.pascalName %> created', { data: result }).body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// ── List (with pagination, filtering, sorting) ───────────────────────────────
+const list = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, sort = 'createdAt', order = 'desc' } = req.query;
+    const filters = {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      sort,
+      order,
+<% resource.fields.forEach(function(f) { -%>
+      <%= f.name %>: req.query.<%= f.name %>,
+<% }); -%>
+      populate: req.query.populate ? req.query.populate.split(',') : [],
+    };
+    const result = await service.getAll<%= resource.pascalName %>s(filters);
+    return res.status(200).json(new ApiResponse(200, 'Fetched', result).body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// ── Get One ──────────────────────────────────────────────────────────────────
+const getOne = async (req, res, next) => {
+  try {
+    const result = await service.get<%= resource.pascalName %>ById(req.params.id);
+    return res.status(200).json(new ApiResponse(200, 'Fetched', { data: result }).body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// ── Update ───────────────────────────────────────────────────────────────────
+const update = async (req, res, next) => {
+  try {
+<% if (resource.features && resource.features.auditLog) { -%>
+    req.body.updatedBy = req.user?._id;
+<% } -%>
+    const result = await service.update<%= resource.pascalName %>(req.params.id, req.body);
+    return res.status(200).json(new ApiResponse(200, 'Updated', { data: result }).body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+// ── Delete ───────────────────────────────────────────────────────────────────
+const remove = async (req, res, next) => {
+  try {
+    await service.delete<%= resource.pascalName %>(req.params.id);
+    return res.status(200).json(new ApiResponse(200, 'Deleted').body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+module.exports = { create, list, getOne, update, remove };
+<% } -%>

@@ -1,0 +1,74 @@
+import React, { useState } from 'react';
+import { use<%= resource.pascalName %> } from "@/hooks/use<%= resource.pascalName %>";
+import { <%= resource.pascalName %>Table } from "@/components/tables/<%= resource.pascalName %>Table";
+import { <%= resource.pascalName %>Form } from "@/components/forms/<%= resource.pascalName %>Form";
+import { Button } from "@/components/ui/button";
+import { RefreshCcw } from "lucide-react";
+import { PageWrapper } from "@/components/layout/PageWrapper";
+import api from "@/api/<%= resource.kebabName %>.api";
+import { toast } from "sonner";
+
+// form-mode: inline — the create/edit form is always visible above the table.
+export default function <%= resource.pascalName %>ListPage() {
+  const { data, loading, refresh } = use<%= resource.pascalName %>();
+  const [editingItem, setEditingItem] = useState(null);
+
+  const handleEdit = (item) => setEditingItem(item);
+
+  const handleDelete = async (item) => {
+    if (!confirm("Are you sure you want to delete this <%= resource.name.toLowerCase() %>?")) return;
+    try {
+      await api.delete(item._id);
+      toast.success("<%= resource.name %> deleted successfully");
+      refresh();
+    } catch (err) {
+      toast.error("Failed to delete <%= resource.name.toLowerCase() %>");
+    }
+  };
+
+  const handleSubmit = async (formData) => {
+    try {
+      if (editingItem) {
+        await api.update(editingItem._id, formData);
+        toast.success("<%= resource.name %> updated successfully");
+      } else {
+        await api.create(formData);
+        toast.success("<%= resource.name %> created successfully");
+      }
+      setEditingItem(null);
+      refresh();
+    } catch (err) {
+      toast.error(editingItem ? "Failed to update <%= resource.name.toLowerCase() %>" : "Failed to create <%= resource.name.toLowerCase() %>");
+    }
+  };
+
+  return (
+    <PageWrapper
+      title="<%= resource.pluralPascal %>"
+      subtitle="Manage your <%= resource.pluralPascal.toLowerCase() %>"
+      actions={
+        <Button variant="outline" size="icon" onClick={() => refresh()} disabled={loading}>
+          <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      }
+    >
+      <div className="space-y-6">
+        <section className="rounded-lg border bg-card p-6">
+          <h2 className="mb-4 text-lg font-medium">
+            {editingItem ? "Edit <%= resource.name %>" : "Create <%= resource.name %>"}
+          </h2>
+          <<%= resource.pascalName %>Form
+            initialData={editingItem}
+            onSubmit={handleSubmit}
+            onCancel={editingItem ? () => setEditingItem(null) : undefined}
+            isLoading={loading}
+          />
+        </section>
+
+        <section>
+          <<%= resource.pascalName %>Table data={data} onEdit={handleEdit} onDelete={handleDelete} />
+        </section>
+      </div>
+    </PageWrapper>
+  );
+}
