@@ -12,6 +12,50 @@ cd my-app && pnpm install && pnpm dev
 
 > `loom init` is still accepted as an alias for `loom new`.
 
+## Local Template Development
+
+Use a local template directory instead of downloading from GitHub:
+
+```bash
+loom init my-app --local-template /path/to/your/template
+```
+
+Or set the environment variable for all commands:
+
+```bash
+export STACKLOOM_TEMPLATES_PATH=/path/to/your/templates
+loom init my-app
+```
+
+`STACKLOOM_TEMPLATES_PATH` points at a directory **containing** template
+subfolders (e.g. `mern/`); `--local-template` points directly at the template
+root.
+
+## Template Contract
+
+Every StackLoom template must include:
+
+| File | Purpose |
+|---|---|
+| `frontend/package.json` | Frontend dependencies |
+| `backend/package.json` | Backend dependencies |
+| `frontend/src/config/app-preset.js` | App configuration contract |
+| `frontend/src/main.jsx` | Frontend entry point |
+| `frontend/index.html` | Vite host page |
+| `backend/server.js` | Backend boot file |
+| `backend/src/app.js` | Express app factory |
+| `.loom/blueprint.json` | Template contract declaration |
+| `.loom/metadata.json` | Engine compatibility metadata |
+
+## Init Flags
+
+| Flag | Description |
+|---|---|
+| `--local-template <path>` | Use a local directory as the template source |
+| `--template <name>` | Template key from `config/templates.json` (default: `mern`) |
+| `--force` | Overwrite existing directory **and** continue past validation errors |
+| `-q, --quiet` | Suppress non-essential output |
+
 ## Generate a full-stack resource
 
 ```bash

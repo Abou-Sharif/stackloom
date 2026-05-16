@@ -13,6 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:smoke": "node test-smoke.js",
+    "test:integration": "node test-integration.js",
     "prepublishOnly": "vitest run"
   },
   "keywords": [

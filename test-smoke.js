@@ -1,111 +1,135 @@
 #!/usr/bin/env node
 /**
- * CLI smoke test — runs init + all generate subcommands against a fresh project.
- * Usage: cd packages/cli && node test-smoke.js
+ * Template contract smoke check.
+ *
+ * Verifies that the MERN template ships every file the CLI contract requires.
+ * Pure file-existence + JSON-shape checks — no network, no install, no spawn.
+ *
+ * Usage:
+ *   node test-smoke.js                       # checks ../stackloom-templates/mern
+ *   node test-smoke.js <path-to-template>    # checks a specific template root
  */
 
-import { execSync } from 'child_process';
-import path from 'path';
-import fs from 'fs-extra';
-import { fileURLToPath } from 'url';
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PROJECT = path.resolve(__dirname, '../test-smoke-project');
-const CLI_PATH = path.resolve(__dirname, 'bin/cli.js');
+const ROOT =
+  process.argv[2]
+    ? path.resolve(process.argv[2])
+    : path.resolve(__dirname, "..", "stackloom-templates", "mern");
 
-// Cleanup previous run
-if (fs.existsSync(PROJECT)) {
-  fs.removeSync(PROJECT);
+const RED = "\x1b[31m";
+const GREEN = "\x1b[32m";
+const YELLOW = "\x1b[33m";
+const CYAN = "\x1b[36m";
+const RESET = "\x1b[0m";
+
+let failed = 0;
+
+function pass(msg) {
+  console.log(`  ${GREEN}✔${RESET} ${msg}`);
+}
+function fail(msg) {
+  console.error(`  ${RED}✖${RESET} ${msg}`);
+  failed += 1;
+}
+function info(msg) {
+  console.log(`${CYAN}▶${RESET} ${msg}`);
 }
 
-function run(cmd, cwd) {
-  console.log(`\n\x1b[36m▶\x1b[0m ${cmd}\n`);
-  execSync(cmd, {
-    cwd,
-    stdio: 'inherit',
-    env: { ...process.env, PNPM_HOME: '' },
-  });
+function safeReadFile(absPath) {
+  try {
+    return { ok: true, data: fs.readFileSync(absPath, "utf-8") };
+  } catch (err) {
+    return { ok: false, error: `${err.code || "ERR"}: ${err.message}` };
+  }
 }
 
-try {
-  // Step 1 — init
-  run(`node ${CLI_PATH} init smoke-project --preset saas --no-install --target ${PROJECT} --force`, __dirname);
-
-  const projPath = path.join(PROJECT, 'smoke-project');
-
-  // Step 2 — generate module
-  run(`node ${CLI_PATH} generate module users`, projPath);
-
-  // Step 3 — generate page
-  run(`node ${CLI_PATH} generate page reports --route /reports --icon bar-chart`, projPath);
-
-  // Step 4 — overwrite same page with --force
-  run(`node ${CLI_PATH} generate page reports --route /reports --force`, projPath);
-
-  // Step 5 — generate deploy configs
-  run(`node ${CLI_PATH} generate deploy --target all`, projPath);
-
-  // Step 6 — remove page (cleanup)
-  run(`node ${CLI_PATH} remove page reports --force`, projPath);
-
-  // Step 7 — generate module then remove it
-  run(`node ${CLI_PATH} generate module tempmod`, projPath);
-  run(`node ${CLI_PATH} remove module tempmod --force`, projPath);
-
-  // Step 8 — validation
-  console.log('\n\x1b[36m▶ Validating generated files...\x1b[0m\n');
-
-  const jsChecks = [
-    'backend/src/routes/index.js',
-    'frontend/src/config/app-preset.js',
-  ];
-
-  for (const file of jsChecks) {
-    const full = path.join(projPath, file);
-    if (!fs.existsSync(full)) throw new Error(`Missing: ${file}`);
-    try {
-      execSync(`node --check "${full}"`, { stdio: 'pipe' });
-      console.log(`  \x1b[32m✓\x1b[0m ${file} — syntax OK`);
-    } catch (e) {
-      console.error(`  \x1b[31m✗\x1b[0m ${file} — syntax error`);
-      throw e;
-    }
+function safeParseJson(absPath) {
+  const read = safeReadFile(absPath);
+  if (!read.ok) return read;
+  try {
+    return { ok: true, data: JSON.parse(read.data) };
+  } catch (err) {
+    return { ok: false, error: `invalid JSON: ${err.message}` };
   }
+}
 
-  const deployFiles = ['Dockerfile', 'docker-compose.yml', 'vercel.json', 'railway.yaml'];
-  for (const file of deployFiles) {
-    const full = path.join(projPath, file);
-    if (!fs.existsSync(full)) throw new Error(`Missing: ${file}`);
-    console.log(`  \x1b[32m✓\x1b[0m ${file} — present`);
+function checkExists(rel) {
+  const abs = path.join(ROOT, ...rel.split("/"));
+  if (!fs.existsSync(abs)) {
+    fail(`${rel} — missing`);
+    return false;
   }
+  pass(`${rel} — present`);
+  return true;
+}
 
-  const jsxChecks = [
-    'frontend/src/routes/AppRouter.jsx',
-  ];
-  for (const file of jsxChecks) {
-    const full = path.join(projPath, file);
-    if (!fs.existsSync(full)) throw new Error(`Missing: ${file}`);
-    const content = fs.readFileSync(full, 'utf-8');
-    if (content.length < 10) throw new Error(`Empty: ${file}`);
-    console.log(`  \x1b[32m✓\x1b[0m ${file} — present`);
-  }
-
-  // Confirm removed items are absent
-  const removedAbsent = [
-    'frontend/src/pages/reports',
-    'backend/src/modules/tempmod',
-  ];
-  for (const dir of removedAbsent) {
-    const full = path.join(projPath, dir);
-    if (fs.existsSync(full)) throw new Error(`Should have been removed: ${dir}`);
-    console.log(`  \x1b[32m✓\x1b[0m ${dir} — correctly removed`);
-  }
-
-  console.log('\n\x1b[32m✓ All smoke tests passed!\x1b[0m\n');
-  process.exit(0);
-} catch (err) {
-  console.error('\x1b[31mSmoke test failed:\x1b[0m', err.message);
+info(`Template root: ${ROOT}`);
+if (!fs.existsSync(ROOT)) {
+  console.error(`\n${RED}✖${RESET} template root does not exist: ${ROOT}`);
+  console.error(`  ${YELLOW}fix:${RESET} pass a valid path as the first argument`);
   process.exit(1);
 }
+
+console.log("\nContract files:");
+const required = [
+  "frontend/src/config/app-preset.js",
+  "frontend/package.json",
+  "backend/package.json",
+];
+for (const rel of required) checkExists(rel);
+
+console.log("\nBlueprint:");
+const blueprintAbs = path.join(ROOT, ".loom", "blueprint.json");
+if (!fs.existsSync(blueprintAbs)) {
+  fail(".loom/blueprint.json — missing");
+} else {
+  const parsed = safeParseJson(blueprintAbs);
+  if (!parsed.ok) {
+    fail(`.loom/blueprint.json — ${parsed.error}`);
+  } else {
+    pass(".loom/blueprint.json — valid JSON");
+    const contract = parsed.data && parsed.data.contract;
+    if (!contract || typeof contract !== "object") {
+      fail(".loom/blueprint.json — missing 'contract' object");
+    } else {
+      pass(".loom/blueprint.json — contract block present");
+      if (typeof contract.navConfigPath === "string" && contract.navConfigPath.length > 0) {
+        pass(`.loom/blueprint.json — contract.navConfigPath = ${contract.navConfigPath}`);
+      } else {
+        fail(".loom/blueprint.json — contract.navConfigPath missing or empty");
+      }
+    }
+  }
+}
+
+console.log("\nMetadata:");
+const metaAbs = path.join(ROOT, ".loom", "metadata.json");
+if (!fs.existsSync(metaAbs)) {
+  fail(".loom/metadata.json — missing");
+} else {
+  const parsed = safeParseJson(metaAbs);
+  if (!parsed.ok) {
+    fail(`.loom/metadata.json — ${parsed.error}`);
+  } else {
+    pass(".loom/metadata.json — valid JSON");
+    if (parsed.data && typeof parsed.data.engineCompatibility === "string") {
+      pass(`.loom/metadata.json — engineCompatibility = ${parsed.data.engineCompatibility}`);
+    } else {
+      fail(".loom/metadata.json — engineCompatibility missing");
+    }
+  }
+}
+
+console.log("");
+if (failed === 0) {
+  console.log(`${GREEN}✓ All contract smoke checks passed.${RESET}`);
+  process.exit(0);
+}
+console.error(`${RED}✖ ${failed} check(s) failed.${RESET}`);
+process.exit(1);

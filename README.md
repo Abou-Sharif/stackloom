@@ -151,6 +151,47 @@ the bundled CLI, starter docs and demo content; strips `STARTER-KIT:` /
 `TODO: Customize` comments and AUTO-GENERATED markers; resets package names;
 and rewrites the README — leaving no trace of the starter kit.
 
+## Local template development
+
+```bash
+# point at a local template tree instead of downloading from GitHub
+loom init my-app --local-template ../stackloom-templates/mern
+
+# or via env var (parent dir; appends the template key)
+export STACKLOOM_TEMPLATES_PATH=../stackloom-templates
+loom init my-app
+```
+
+The CLI resolves the template source in this order: `--local-template` →
+`STACKLOOM_TEMPLATES_PATH` → `config/templates.json` → built-in fallback.
+Edit `config/templates.json` to point at a fork or a different branch.
+
+### Template contract
+
+Every StackLoom template must ship these files; `loom init` aborts with a
+descriptive error if any are missing:
+
+| File | Purpose |
+|---|---|
+| `frontend/package.json` · `backend/package.json` | per-tier dependency manifests |
+| `frontend/src/config/app-preset.js` | preset surface the CLI rewrites |
+| `frontend/src/main.jsx` · `frontend/index.html` · `backend/server.js` · `backend/src/app.js` | entry points |
+| `.loom/blueprint.json` | template contract |
+| `.loom/metadata.json` | engine compatibility |
+
+The starter template lives at
+[`stackloom/stackloom-templates`](https://github.com/stackloom/stackloom-templates).
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `HTTP 404 from https://github.com/...` | Wrong `defaultRepo` / branch in `config/templates.json` | Edit the config or pass `--local-template` |
+| `local template path does not exist: …` | Typo in `--local-template` or env var | Use the absolute path printed in the error |
+| `Template validation failed. Missing required files: ...` | Template is incomplete or wrong directory passed | `ls -R` the printed path; rerun with `--local-template <correct-path>` |
+| `pnpm install failed in frontend` | `pnpm` not installed or network down | Run `pnpm -C <project>/frontend install` manually |
+| `Smoke check failed` | Template shipped without the contract files | File an issue at the template repo |
+
 ## Local development
 
 ```bash
@@ -158,6 +199,7 @@ cd packages/cli
 pnpm install
 node bin/cli.js --help
 pnpm test          # vitest — engine, blueprint, recipes, services, schemas
+pnpm test:smoke    # contract smoke test for the MERN template
 ```
 
 See [`DEVELOPER.md`](./DEVELOPER.md) for engine internals, [`API.md`](./API.md)
