@@ -74,10 +74,17 @@ program
     "--deploy-targets <list>",
     "Comma-separated deploy targets (docker,vercel,railway)",
   )
+  .option("--architecture <level>", "Architecture: lightweight|moderate|advanced")
   .option("--no-install", "Skip pnpm install")
   .option("--target <dir>", "Output directory")
-  .option("--force", "Overwrite existing directory")
-  .action(init);
+  .option("--force", "Overwrite existing directory or continue past validation errors")
+  .option("--local-template <path>", "Use a local directory as the template source (skips download)")
+  .option("--template <name>", "Template key from config/templates.json (default: mern)")
+  .action((projectName, options) =>
+    // FIX: global flags like --quiet live on program.opts(); merge them into
+    // the command-level options so init.js sees a single options object.
+    init(projectName, { ...program.opts(), ...options }),
+  );
 
 // Generate commands (inside existing project)
 const generateCmd = program

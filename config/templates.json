@@ -1,0 +1,10 @@
+{
+  "defaultRepo": "stackloom/stackloom-templates",
+  "defaultBranch": "main",
+  "templates": {
+    "mern": {
+      "dir": "mern",
+      "description": "MongoDB, Express, React, Node.js"
+    }
+  }
+}
