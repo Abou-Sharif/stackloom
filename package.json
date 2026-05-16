@@ -1,7 +1,7 @@
 {
-  "name": "stackloom",
-  "version": "0.1.0",
-  "description": "Stackloom — weave production-ready full-stack apps. Recipe-driven, transactional code generation for MERN and beyond.",
+  "name": "stackloom-cli",
+  "version": "1.0.0",
+  "description": "Stackloom CLI — weave production-ready full-stack apps. Recipe-driven, transactional code generation for MERN and beyond.",
   "type": "module",
   "bin": {
     "loom": "./bin/cli.js"
@@ -28,15 +28,15 @@
     "starter",
     "fullstack"
   ],
-  "author": "Benimana Flaubert <jean21101999@gmail.com>",
+  "author": "Niyo Abou Sharif <niyoabousharifu@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BENIMANA-II/stackloom.git"
+    "url": "git+https://github.com/Abou-Sharif/stackloom.git"
   },
-  "homepage": "https://github.com/BENIMANA-II/stackloom#readme",
+  "homepage": "https://github.com/Abou-Sharif/stackloom#readme",
   "bugs": {
-    "url": "https://github.com/BENIMANA-II/stackloom/issues"
+    "url": "https://github.com/Abou-Sharif/stackloom/issues"
   },
   "dependencies": {
     "chalk": "^5.3.0",
