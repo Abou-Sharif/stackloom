@@ -29,5 +29,4 @@ Thumbs.db
 # Loom state in test fixtures
 .loom-backup-*
 .fsk-backup-*
-.npmrc
 pnpm-lock.yaml
