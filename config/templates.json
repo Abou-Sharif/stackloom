@@ -1,5 +1,5 @@
 {
-  "defaultRepo": "Abou-Sharif/stackloom-templates",
+  "defaultRepo": "stackloom/stackloom-templates",
   "defaultBranch": "main",
   "templates": {
     "mern": {
