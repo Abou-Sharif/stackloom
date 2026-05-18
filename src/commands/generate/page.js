@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-import path from 'path';
-import fs from 'fs-extra';
-import chalk from 'chalk';
-import ora from 'ora';
+import path from "path";
+import fs from "fs-extra";
+import chalk from "chalk";
+import ora from "ora";
 import inquirer from "inquirer";
-import { blueprintLoader } from '../../blueprint/index.js';
+import { blueprintLoader } from "../../blueprint/index.js";
 
 /**
  * Resolve frontend/backend directory names via the architecture blueprint.
@@ -14,8 +14,8 @@ import { blueprintLoader } from '../../blueprint/index.js';
 export async function getConfigPaths(projectRoot) {
   const blueprint = await blueprintLoader.load(projectRoot);
   return {
-    frontendDir: blueprint.resolveRoot('frontend', projectRoot),
-    backendDir: blueprint.resolveRoot('backend', projectRoot),
+    frontendDir: blueprint.resolveRoot("frontend", projectRoot),
+    backendDir: blueprint.resolveRoot("backend", projectRoot),
   };
 }
 
@@ -30,26 +30,99 @@ export default async function generatePageCmd(name, options) {
   const projectRoot = process.cwd();
   const { frontendDir, backendDir } = await getConfigPaths(projectRoot);
 
-  if (!fs.existsSync(path.join(projectRoot, frontendDir, 'src/App.jsx'))) {
-    console.log(chalk.red('✖  Not a MERN Starter Kit frontend.'));
+  if (!fs.existsSync(path.join(projectRoot, frontendDir, "src/App.jsx"))) {
+    console.log(chalk.red("✖  Not a MERN Starter Kit frontend."));
     process.exit(1);
   }
 
   const isDashboard = name.toLowerCase() === "dashboard";
-  const pageName = isDashboard ? "Dashboard" : (name.charAt(0).toUpperCase() + name.slice(1));
-  const pageDir = path.join(projectRoot, frontendDir, 'src/pages', isDashboard ? "dashboard" : name);
+  const pageName = isDashboard
+    ? "Dashboard"
+    : name.charAt(0).toUpperCase() + name.slice(1);
+  const pageDir = path.join(
+    projectRoot,
+    frontendDir,
+    "src/pages",
+    isDashboard ? "dashboard" : name,
+  );
   const pageFile = path.join(pageDir, `${pageName}Page.jsx`);
 
   if (fs.existsSync(pageFile)) {
     if (options.force) {
       spinner.warn(`${pageFile} exists — will overwrite (--force)`);
     } else {
-      console.log(chalk.yellow(`⚠  Page ${pageName} already exists. Use --force to overwrite.`));
+      console.log(
+        chalk.yellow(
+          `⚠  Page ${pageName} already exists. Use --force to overwrite.`,
+        ),
+      );
       process.exit(1);
     }
   }
 
   await fs.ensureDir(pageDir);
+
+  if (options.interactive) {
+    const defaultRoute = `/${name}`;
+    const routeAnswer = await inquirer.prompt([
+      {
+        type: "list",
+        name: "routeMode",
+        message: "Route path:",
+        choices: [
+          { name: `Default (${defaultRoute})`, value: "default" },
+          { name: "Custom route", value: "custom" },
+        ],
+        default: "default",
+      },
+      {
+        type: "input",
+        name: "route",
+        message: "Enter route path (must start with /):",
+        when: (answers) => answers.routeMode === "custom",
+        default: defaultRoute,
+        validate: (input) =>
+          input.trim().startsWith("/") || "Route must start with a slash (/)",
+        filter: (input) =>
+          input.trim().startsWith("/") ? input.trim() : `/${input.trim()}`,
+      },
+      {
+        type: "list",
+        name: "icon",
+        message: "Choose an icon:",
+        choices: [
+          { name: "layout", value: "layout" },
+          { name: "settings", value: "settings" },
+          { name: "users", value: "users" },
+          { name: "shield-check", value: "shield-check" },
+          { name: "bar-chart-2", value: "bar-chart-2" },
+          { name: "wand", value: "wand" },
+          { name: "Custom icon name", value: "custom" },
+        ],
+        default: "layout",
+      },
+      {
+        type: "input",
+        name: "customIcon",
+        message: "Custom icon name:",
+        when: (answers) => answers.icon === "custom",
+        validate: (input) =>
+          /^[a-z0-9-]+$/i.test(input) || "Use only letters, numbers and dashes",
+        filter: (input) => input.trim(),
+      },
+      {
+        type: "confirm",
+        name: "addNav",
+        message: "Add this page to navigation?",
+        default: true,
+      },
+    ]);
+
+    options.route = routeAnswer.route || defaultRoute;
+    options.icon =
+      routeAnswer.icon === "custom" ? routeAnswer.customIcon : routeAnswer.icon;
+    options.noNav = !routeAnswer.addNav;
+  }
 
   let formFields = [];
   let formMode = "page";
@@ -60,7 +133,9 @@ export default async function generatePageCmd(name, options) {
     } else if (options.interactive) {
       formFields = await askFormFields();
     } else {
-      formFields = [{ name: "name", type: "text", label: "Name", required: true }];
+      formFields = [
+        { name: "name", type: "text", label: "Name", required: true },
+      ];
     }
   }
 
@@ -83,15 +158,33 @@ export default async function generatePageCmd(name, options) {
   await fs.writeFile(pageFile, pageContent);
   spinner.succeed(`Created page: ${pageFile}`);
 
-  const routerPath = path.join(projectRoot, frontendDir, 'src/routes/AppRouter.jsx');
+  const routerPath = path.join(
+    projectRoot,
+    frontendDir,
+    "src/routes/AppRouter.jsx",
+  );
   if (fs.existsSync(routerPath)) {
-    await updateRouter(routerPath, pageName, isDashboard ? "dashboard" : name, options.route, spinner);
+    await updateRouter(
+      routerPath,
+      pageName,
+      isDashboard ? "dashboard" : name,
+      options.route,
+      spinner,
+    );
   } else {
-    console.log(chalk.yellow("⚠  AppRouter.jsx not found — add route manually."));
+    console.log(
+      chalk.yellow("⚠  AppRouter.jsx not found — add route manually."),
+    );
   }
 
   if (!options.noNav) {
-    await updateNavigation(path.join(projectRoot, frontendDir, 'src/config/app-preset.js'), pageName, options.route || `/${isDashboard ? "dashboard" : name}`, options.icon, spinner);
+    await updateNavigation(
+      path.join(projectRoot, frontendDir, "src/config/app-preset.js"),
+      pageName,
+      options.route || `/${isDashboard ? "dashboard" : name}`,
+      options.icon,
+      spinner,
+    );
   }
 }
 
@@ -101,56 +194,70 @@ export default async function generatePageCmd(name, options) {
  */
 export function parseFormFields(str) {
   if (!str || typeof str !== "string") return [];
-  
-  return str.split(";").map(fieldPart => {
-    const parts = fieldPart.split(":");
-    const name = parts[0]?.trim();
-    const type = (parts[1] || "text").trim();
-    const rulesPart = parts[2]?.trim() || "";
-    
-    if (!name) return null;
-    
-    const field = { name, type, label: name.charAt(0).toUpperCase() + name.slice(1) };
-    
-    if (rulesPart) {
-      const rules = rulesPart.split("|");
-      rules.forEach(rule => {
-        const [key, value] = rule.split("=").map(s => s.trim());
-        if (!value && key === "required") {
-          field.required = true;
-        } else if (!value && key === "unique") {
-          field.unique = true;
-        } else if (value) {
-          const num = parseFloat(value);
-          field[key] = isNaN(num) ? value : num;
+
+  return str
+    .split(";")
+    .map((fieldPart) => {
+      const parts = fieldPart.split(":");
+      const name = parts[0]?.trim();
+      const type = (parts[1] || "text").trim();
+      const rulesPart = parts[2]?.trim() || "";
+
+      if (!name) return null;
+
+      const field = {
+        name,
+        type,
+        label: name.charAt(0).toUpperCase() + name.slice(1),
+      };
+
+      if (rulesPart) {
+        const rules = rulesPart.split("|");
+        rules.forEach((rule) => {
+          const [key, value] = rule.split("=").map((s) => s.trim());
+          if (!value && key === "required") {
+            field.required = true;
+          } else if (!value && key === "unique") {
+            field.unique = true;
+          } else if (value) {
+            const num = parseFloat(value);
+            field[key] = isNaN(num) ? value : num;
+          }
+        });
+        if (field.default !== undefined) {
+          field.defaultValue = field.default;
         }
-      });
-      if (field.default !== undefined) {
-        field.defaultValue = field.default;
       }
-    }
-    
-    return field;
-  }).filter(Boolean);
+
+      return field;
+    })
+    .filter(Boolean);
 }
 
 export async function askFormFields() {
   const { continueAdding } = await inquirer.prompt([
-    { type: "confirm", name: "continueAdding", message: "Add form fields?", default: true },
+    {
+      type: "confirm",
+      name: "continueAdding",
+      message: "Add form fields?",
+      default: true,
+    },
   ]);
-  
+
   const fields = [];
   while (continueAdding) {
     const answers = await inquirer.prompt([
-      { 
-        type: "input", 
-        name: "name", 
+      {
+        type: "input",
+        name: "name",
         message: "Field name:",
-        validate: (v) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(v) || "Valid JS identifier required" 
+        validate: (v) =>
+          /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(v) ||
+          "Valid JS identifier required",
       },
-      { 
-        type: "list", 
-        name: "type", 
+      {
+        type: "list",
+        name: "type",
         message: "Field type:",
         choices: [
           { name: "Text (single line)", value: "text" },
@@ -169,11 +276,12 @@ export async function askFormFields() {
           { name: "Hidden", value: "hidden" },
         ],
       },
-      { 
-        type: "input", 
-        name: "label", 
+      {
+        type: "input",
+        name: "label",
         message: "Label (optional):",
-        default: (prev) => prev.name.charAt(0).toUpperCase() + prev.name.slice(1) 
+        default: (prev) =>
+          prev.name.charAt(0).toUpperCase() + prev.name.slice(1),
       },
       {
         type: "checkbox",
@@ -182,50 +290,57 @@ export async function askFormFields() {
         choices: [
           { name: "Required", value: "required", checked: true },
           { name: "Unique", value: "unique", checked: false },
-        ]
+        ],
       },
       {
         type: "input",
         name: "minLength",
         message: "Min length (optional):",
-        validate: (v) => !v || /^\d+$/.test(v) || "Enter a number or leave empty"
+        validate: (v) =>
+          !v || /^\d+$/.test(v) || "Enter a number or leave empty",
       },
       {
         type: "input",
         name: "maxLength",
         message: "Max length (optional):",
-        validate: (v) => !v || /^\d+$/.test(v) || "Enter a number or leave empty"
+        validate: (v) =>
+          !v || /^\d+$/.test(v) || "Enter a number or leave empty",
       },
       {
         type: "input",
         name: "minValue",
         message: "Min value (for numbers/dates):",
-        validate: (v) => !v || !isNaN(v) || "Enter a number/date or leave empty"
+        validate: (v) =>
+          !v || !isNaN(v) || "Enter a number/date or leave empty",
       },
       {
         type: "input",
         name: "maxValue",
         message: "Max value (for numbers/dates):",
-        validate: (v) => !v || !isNaN(v) || "Enter a number/date or leave empty"
+        validate: (v) =>
+          !v || !isNaN(v) || "Enter a number/date or leave empty",
       },
       {
         type: "input",
         name: "pattern",
         message: "Regex pattern (e.g., /^[A-Z]+$/):",
-        validate: (v) => !v || v.startsWith("/") || "Enter regex like /^[A-Z]+$/ or leave empty"
+        validate: (v) =>
+          !v ||
+          v.startsWith("/") ||
+          "Enter regex like /^[A-Z]+$/ or leave empty",
       },
       {
         type: "input",
         name: "placeholder",
-        message: "Placeholder text (optional):"
+        message: "Placeholder text (optional):",
       },
       {
         type: "input",
         name: "helperText",
-        message: "Helper/instructions text (optional):"
+        message: "Helper/instructions text (optional):",
       },
     ]);
-    
+
     const field = {
       name: answers.name,
       type: answers.type,
@@ -235,54 +350,85 @@ export async function askFormFields() {
       placeholder: answers.placeholder,
       helperText: answers.helperText,
     };
-    
+
     if (answers.minLength) field.minLength = parseInt(answers.minLength);
     if (answers.maxLength) field.maxLength = parseInt(answers.maxLength);
-    if (answers.minValue !== undefined && answers.minValue !== "") field.min = parseFloat(answers.minValue);
-    if (answers.maxValue !== undefined && answers.maxValue !== "") field.max = parseFloat(answers.maxValue);
+    if (answers.minValue !== undefined && answers.minValue !== "")
+      field.min = parseFloat(answers.minValue);
+    if (answers.maxValue !== undefined && answers.maxValue !== "")
+      field.max = parseFloat(answers.maxValue);
     if (answers.pattern) field.pattern = answers.pattern;
-    
+
     if (field.type === "range") {
       field.min = field.min ?? 0;
       field.max = field.max ?? 100;
       field.step = field.step ?? 1;
     }
-    
+
     fields.push(field);
-    const { more } = await inquirer.prompt([{ type: "confirm", name: "more", message: "Add another field?", default: false }]);
+    const { more } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "more",
+        message: "Add another field?",
+        default: false,
+      },
+    ]);
     if (!more) break;
   }
   return fields;
 }
 
 function singularize(word) {
-  if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
+  if (word.endsWith("ies")) return word.slice(0, -3) + "y";
   // Words ending in ch, sh, ss, s, x, z, o + es -> remove 'es'
-  if (word.endsWith('es') && word.length > 2) {
+  if (word.endsWith("es") && word.length > 2) {
     const stem = word.slice(0, -2); // remove 'es' to get stem
-    if (stem.endsWith('s') || stem.endsWith('x') || stem.endsWith('z') || stem.endsWith('o')) {
+    if (
+      stem.endsWith("s") ||
+      stem.endsWith("x") ||
+      stem.endsWith("z") ||
+      stem.endsWith("o")
+    ) {
       return stem; // classes -> class, boxes -> box
     }
   }
-  if (word.endsWith('s') && !word.endsWith('ss') && !word.endsWith('us')) return word.slice(0, -1);
+  if (word.endsWith("s") && !word.endsWith("ss") && !word.endsWith("us"))
+    return word.slice(0, -1);
   return word;
 }
 
-function generatePageComponent(pageName, routeName, formFields, formMode = "page") {
+function generatePageComponent(
+  pageName,
+  routeName,
+  formFields,
+  formMode = "page",
+) {
   const formComponentName = `${pageName}Form`;
   const singularName = singularize(pageName);
 
-  const pageImports = formFields.length ?
-    `import { ${formComponentName} } from "./components/${formComponentName}";\n` : "";
+  const pageImports = formFields.length
+    ? `import { ${formComponentName} } from "./components/${formComponentName}";\n`
+    : "";
 
   // Helper data for table and list
-  const displayFields = formFields.filter(f => !['file', 'hidden', 'password'].includes(f.type));
-  const tableHeaders = displayFields.map(f => 
-    `        <TableHead>${f.label || f.name.charAt(0).toUpperCase() + f.name.slice(1)}</TableHead>`
-  ).join('\n');
-  const tableCells = displayFields.map(f => 
-    '                  <TableCell>{String(item.' + f.name + ' || "")}</TableCell>'
-  ).join('\n');
+  const displayFields = formFields.filter(
+    (f) => !["file", "hidden", "password"].includes(f.type),
+  );
+  const tableHeaders = displayFields
+    .map(
+      (f) =>
+        `        <TableHead>${f.label || f.name.charAt(0).toUpperCase() + f.name.slice(1)}</TableHead>`,
+    )
+    .join("\n");
+  const tableCells = displayFields
+    .map(
+      (f) =>
+        "                  <TableCell>{String(item." +
+        f.name +
+        ' || "")}</TableCell>',
+    )
+    .join("\n");
 
   const dropdownActions = `          <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -502,7 +648,7 @@ ${pageImports}`;
             {items.map((item) => (
               <div key={item._id || item.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  ${displayFields.length ? displayFields.map(f => '<span className="font-medium">' + f.label + ':</span> {String(item.' + f.name + ' || "")}').join(' — ') : item._id || item.id}
+                  ${displayFields.length ? displayFields.map((f) => '<span className="font-medium">' + f.label + ":</span> {String(item." + f.name + ' || "")}').join(" — ") : item._id || item.id}
                 </div>
                 ${simpleActions}
               </div>
@@ -599,7 +745,7 @@ ${pageImports}`;
             {items.map((item) => (
               <div key={item._id || item.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  ${displayFields.length ? displayFields.map(f => '<span className="font-medium">' + f.label + ':</span> {String(item.' + f.name + ' || "")}').join(' — ') : item._id || item.id}
+                  ${displayFields.length ? displayFields.map((f) => '<span className="font-medium">' + f.label + ":</span> {String(item." + f.name + ' || "")}').join(" — ") : item._id || item.id}
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => { setEditingId(item._id || item.id); }}>
@@ -621,8 +767,8 @@ ${pageImports}`;
   }
 
   // Default: page mode
-  const pageImportsWithEffects = pageImports ? 
-    `import { useState, useEffect } from "react";
+  const pageImportsWithEffects = pageImports
+    ? `import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { api } from "@/api/axiosInstance";
 import { PageWrapper } from "@/components/layout/PageWrapper";
@@ -630,8 +776,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-${pageImports}` :
-    `import { useState, useEffect } from "react";
+${pageImports}`
+    : `import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { api } from "@/api/axiosInstance";
 import { useAuth } from "@/hooks/useAuth";
@@ -647,7 +793,7 @@ ${pageImports}`;
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
-  ${pageImports ? '' : 'const { user } = useAuth();'}
+  ${pageImports ? "" : "const { user } = useAuth();"}
 
   useEffect(() => {
     fetchItems();
@@ -689,11 +835,15 @@ ${pageImports}`;
         <p className="text-muted-foreground">Manage ${routeName.toLowerCase()} here.</p>
       </section>
 
-      ${formFields.length ? `
+      ${
+        formFields.length
+          ? `
       <section className="bg-card p-6 rounded-lg border">
         <h2 className="text-xl font-medium mb-4">Create New</h2>
         <${formComponentName} onSuccess={handleSuccess} editId={editingId} />
-      </section>` : ''}
+      </section>`
+          : ""
+      }
 
       <section className="bg-card p-6 rounded-lg border">
         <h2 className="text-xl font-medium mb-4">All Items</h2>
@@ -736,8 +886,12 @@ ${tableCells}
 }
 export function generateDashboardPage(pageName, modules = []) {
   const hasModules = modules.length > 0;
-  const moduleRefs = modules.map(m => m.name).join(', ');
-  const fetchStatsPromises = modules.map(m => `api.get("/api/${m.name}").then(r => r.data?.data?.length || 0)`).join(', ');
+  const moduleRefs = modules.map((m) => m.name).join(", ");
+  const fetchStatsPromises = modules
+    .map(
+      (m) => `api.get("/api/${m.name}").then(r => r.data?.data?.length || 0)`,
+    )
+    .join(", ");
 
   return `import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -749,18 +903,21 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const fetchStats = async () => {
-  const promises = [${fetchStatsPromises || 'Promise.resolve(0)'}];
+  const promises = [${fetchStatsPromises || "Promise.resolve(0)"}];
   const results = await Promise.all(promises);
-  return { ${modules.map((m, i) => `${m.name}: results[${i}]`).join(', ')} };
+  return { ${modules.map((m, i) => `${m.name}: results[${i}]`).join(", ")} };
 };
 
 const fetchActivity = async ({ queryKey }) => {
   const [_key, page] = queryKey;
   const responses = await Promise.all([
-    ${modules.slice(0, 3).map(m => `api.get("/api/${m.name}?limit=5&skip=" + page * 5)`).join(',\n    ')}
+    ${modules
+      .slice(0, 3)
+      .map((m) => `api.get("/api/${m.name}?limit=5&skip=" + page * 5)`)
+      .join(",\n    ")}
   ]);
   return responses.flatMap((r, i) =>
-    (r.data?.data || []).map(item => ({ ...item, module: "${modules[0]?.name || 'item'}" }))
+    (r.data?.data || []).map(item => ({ ...item, module: "${modules[0]?.name || "item"}" }))
   ).slice(0, 10);
 };
 
@@ -785,7 +942,11 @@ export default function ${pageName}Page() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        ${hasModules ? modules.map(m => `
+        ${
+          hasModules
+            ? modules
+                .map(
+                  (m) => `
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">${m.name.charAt(0).toUpperCase() + m.name.slice(1)}</CardTitle>
@@ -795,7 +956,10 @@ export default function ${pageName}Page() {
             <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.${m.name} ?? 0}</div>
             <p className="text-xs text-muted-foreground">Total records</p>
           </CardContent>
-        </Card>`).join('\n') : `
+        </Card>`,
+                )
+                .join("\n")
+            : `
         <Card>
           <CardHeader>
             <CardTitle>Welcome</CardTitle>
@@ -806,7 +970,8 @@ export default function ${pageName}Page() {
               <Link to="/modules">View Modules</Link>
             </Button>
           </CardContent>
-        </Card>`}
+        </Card>`
+        }
       </section>
 
       <section>
@@ -869,26 +1034,35 @@ export default function ${pageName}Page() {
 }
 
 function generateFormComponent(pageName, fields) {
-   const fieldInputs = fields.filter(f => f.type !== 'hidden').map((field) => {
-    const id = field.name.toLowerCase();
-    const label = field.label || field.name.charAt(0).toUpperCase() + field.name.slice(1);
-    const required = field.required ? "required" : "";
-    const placeholder = field.placeholder ? `placeholder="${field.placeholder}"` : "";
-    const helperText = field.helperText ? `<p className="text-xs text-muted-foreground mt-1">${field.helperText}</p>` : "";
+  const fieldInputs = fields
+    .filter((f) => f.type !== "hidden")
+    .map((field) => {
+      const id = field.name.toLowerCase();
+      const label =
+        field.label || field.name.charAt(0).toUpperCase() + field.name.slice(1);
+      const required = field.required ? "required" : "";
+      const placeholder = field.placeholder
+        ? `placeholder="${field.placeholder}"`
+        : "";
+      const helperText = field.helperText
+        ? `<p className="text-xs text-muted-foreground mt-1">${field.helperText}</p>`
+        : "";
 
-    let validationAttrs = "";
-    if (field.type === "number" || field.type === "range") {
-      if (field.min !== undefined) validationAttrs += ` min="${field.min}"`;
-      if (field.max !== undefined) validationAttrs += ` max="${field.max}"`;
-      if (field.step) validationAttrs += ` step="${field.step}"`;
-    }
-    if (field.type === "text" || field.type === "string") {
-      if (field.minLength !== undefined) validationAttrs += ` minLength="${field.minLength}"`;
-      if (field.maxLength !== undefined) validationAttrs += ` maxLength="${field.maxLength}"`;
-    }
+      let validationAttrs = "";
+      if (field.type === "number" || field.type === "range") {
+        if (field.min !== undefined) validationAttrs += ` min="${field.min}"`;
+        if (field.max !== undefined) validationAttrs += ` max="${field.max}"`;
+        if (field.step) validationAttrs += ` step="${field.step}"`;
+      }
+      if (field.type === "text" || field.type === "string") {
+        if (field.minLength !== undefined)
+          validationAttrs += ` minLength="${field.minLength}"`;
+        if (field.maxLength !== undefined)
+          validationAttrs += ` maxLength="${field.maxLength}"`;
+      }
 
-     let inputElement;
-     switch (field.type) {
+      let inputElement;
+      switch (field.type) {
         case "textarea":
           inputElement = `<textarea
             id="${id}"
@@ -931,8 +1105,8 @@ function generateFormComponent(pageName, fields) {
           </div>`;
           break;
 
-       case "file":
-         inputElement = `<input
+        case "file":
+          inputElement = `<input
            type="file"
            id="${id}"
            name="${id}"
@@ -940,7 +1114,7 @@ function generateFormComponent(pageName, fields) {
            accept="${field.accept || "*/*"}"
            ${field.multiple ? "multiple" : ""}
          />`;
-         break;
+          break;
 
         case "range":
           inputElement = `<div className="space-y-2">
@@ -977,8 +1151,8 @@ function generateFormComponent(pageName, fields) {
             name="${id}"
             className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             ${required}
-            ${field.min ? `min="${field.min}"` : ''}
-            ${field.max ? `max="${field.max}"` : ''}
+            ${field.min ? `min="${field.min}"` : ""}
+            ${field.max ? `max="${field.max}"` : ""}
             onChange={handleChange}
             value={values.${field.name}}
           />`;
@@ -1003,8 +1177,8 @@ function generateFormComponent(pageName, fields) {
             name="${id}"
             className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             ${required}
-            ${field.min ? `min="${field.min}"` : ''}
-            ${field.max ? `max="${field.max}"` : ''}
+            ${field.min ? `min="${field.min}"` : ""}
+            ${field.max ? `max="${field.max}"` : ""}
             onChange={handleChange}
             value={values.${field.name}}
           />`;
@@ -1062,7 +1236,7 @@ function generateFormComponent(pageName, fields) {
             className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             ${required}
             minLength="8"
-            autoComplete="${field.name.toLowerCase().includes('current') ? 'current-password' : 'new-password'}"
+            autoComplete="${field.name.toLowerCase().includes("current") ? "current-password" : "new-password"}"
             onChange={handleChange}
             value={values.${field.name}}
           />`;
@@ -1075,9 +1249,9 @@ function generateFormComponent(pageName, fields) {
             name="${id}"
             className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             ${required}
-            ${field.min !== undefined ? `min="${field.min}"` : ''}
-            ${field.max !== undefined ? `max="${field.max}"` : ''}
-            ${field.step ? `step="${field.step}"` : ''}
+            ${field.min !== undefined ? `min="${field.min}"` : ""}
+            ${field.max !== undefined ? `max="${field.max}"` : ""}
+            ${field.step ? `step="${field.step}"` : ""}
             onChange={handleChange}
             value={values.${field.name}}
           />`;
@@ -1090,11 +1264,11 @@ function generateFormComponent(pageName, fields) {
               id="${id}"
               name="${id}"
               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary"
-              ${required ? 'required' : ''}
+              ${required ? "required" : ""}
               onChange={handleChange}
               checked={values.${field.name}}
             />
-            <label htmlFor="${id}" className="text-sm font-medium">${field.label || ''}</label>
+            <label htmlFor="${id}" className="text-sm font-medium">${field.label || ""}</label>
           </div>`;
           break;
 
@@ -1112,76 +1286,139 @@ function generateFormComponent(pageName, fields) {
           />`;
       }
 
-    return `      <div key="${id}" className="space-y-2">
+      return `      <div key="${id}" className="space-y-2">
         <label htmlFor="${id}" className="block text-sm font-medium">
-          ${label}${field.required ? '<span className="text-destructive ml-1">*</span>' : ''}
+          ${label}${field.required ? '<span className="text-destructive ml-1">*</span>' : ""}
         </label>
         ${inputElement}
         ${helperText}
       </div>`;
-  }).join("\n\n");
+    })
+    .join("\n\n");
 
-  const formFieldsObject = fields.map((f) => {
-    let defaultValue = '""';
-    switch (f.type) {
-      case "hidden": defaultValue = f.defaultValue !== undefined ? JSON.stringify(f.defaultValue) : '""'; break;
-      case "number":
-      case "range": defaultValue = f.defaultValue ?? 0; break;
-      case "boolean": defaultValue = f.defaultValue ?? false; break;
-      case "date":
-      case "datetime-local": defaultValue = f.defaultValue ?? '""'; break;
-      case "text":
-      case "string":
-      case "email":
-      case "tel":
-      case "url":
-      case "password":
-      case "textarea": defaultValue = f.defaultValue !== undefined ? JSON.stringify(f.defaultValue) : '""'; break;
-    }
-    return `      ${f.name}: ${defaultValue}`;
-  }).join(",\n");
+  const formFieldsObject = fields
+    .map((f) => {
+      let defaultValue = '""';
+      switch (f.type) {
+        case "hidden":
+          defaultValue =
+            f.defaultValue !== undefined
+              ? JSON.stringify(f.defaultValue)
+              : '""';
+          break;
+        case "number":
+        case "range":
+          defaultValue = f.defaultValue ?? 0;
+          break;
+        case "boolean":
+          defaultValue = f.defaultValue ?? false;
+          break;
+        case "date":
+        case "datetime-local":
+          defaultValue = f.defaultValue ?? '""';
+          break;
+        case "text":
+        case "string":
+        case "email":
+        case "tel":
+        case "url":
+        case "password":
+        case "textarea":
+          defaultValue =
+            f.defaultValue !== undefined
+              ? JSON.stringify(f.defaultValue)
+              : '""';
+          break;
+      }
+      return `      ${f.name}: ${defaultValue}`;
+    })
+    .join(",\n");
 
-  const sanitizationImports = fields.some(f => ["email", "url", "tel", "text", "string"].includes(f.type))
+  const sanitizationImports = fields.some((f) =>
+    ["email", "url", "tel", "text", "string"].includes(f.type),
+  )
     ? `import { sanitizeEmail, sanitizeUrl, sanitizePhone, sanitizeText } from "@/utils/sanitize";\n`
-    : '';
+    : "";
 
   // Build validation blocks only for relevant fields, avoiding empty lines
-  const requiredChecks = fields.filter(f => f.required).map(f => {
-    if (f.type === 'boolean') {
-      return `if (values.${f.name} !== true) errors.push("${f.label} is required");`;
-    }
-    return `if (values.${f.name} === undefined || values.${f.name} === null || values.${f.name} === '') errors.push("${f.label} is required");`;
-  });
+  const requiredChecks = fields
+    .filter((f) => f.required)
+    .map((f) => {
+      if (f.type === "boolean") {
+        return `if (values.${f.name} !== true) errors.push("${f.label} is required");`;
+      }
+      return `if (values.${f.name} === undefined || values.${f.name} === null || values.${f.name} === '') errors.push("${f.label} is required");`;
+    });
 
-  const numberChecks = fields.filter(f => f.type === "number" || f.type === "range").flatMap(f => {
-    const checks = [];
-    if (f.min !== undefined) checks.push(`if (values.${f.name} !== undefined && values.${f.name} !== null && values.${f.name} < ${f.min}) errors.push("${f.label} must be >= ${f.min}");`);
-    if (f.max !== undefined) checks.push(`if (values.${f.name} !== undefined && values.${f.name} !== null && values.${f.name} > ${f.max}) errors.push("${f.label} must be <= ${f.max}");`);
-    return checks;
-  });
+  const numberChecks = fields
+    .filter((f) => f.type === "number" || f.type === "range")
+    .flatMap((f) => {
+      const checks = [];
+      if (f.min !== undefined)
+        checks.push(
+          `if (values.${f.name} !== undefined && values.${f.name} !== null && values.${f.name} < ${f.min}) errors.push("${f.label} must be >= ${f.min}");`,
+        );
+      if (f.max !== undefined)
+        checks.push(
+          `if (values.${f.name} !== undefined && values.${f.name} !== null && values.${f.name} > ${f.max}) errors.push("${f.label} must be <= ${f.max}");`,
+        );
+      return checks;
+    });
 
-  const lengthChecks = fields.filter(f => (f.minLength || f.maxLength) && ["text", "textarea", "string", "email", "tel", "url", "password"].includes(f.type)).flatMap(f => {
-    const checks = [];
-    if (f.minLength) checks.push(`if (values.${f.name} && values.${f.name}.length < ${f.minLength}) errors.push("Min ${f.minLength} characters");`);
-    if (f.maxLength) checks.push(`if (values.${f.name} && values.${f.name}.length > ${f.maxLength}) errors.push("Max ${f.maxLength} characters");`);
-    return checks;
-  });
+  const lengthChecks = fields
+    .filter(
+      (f) =>
+        (f.minLength || f.maxLength) &&
+        [
+          "text",
+          "textarea",
+          "string",
+          "email",
+          "tel",
+          "url",
+          "password",
+        ].includes(f.type),
+    )
+    .flatMap((f) => {
+      const checks = [];
+      if (f.minLength)
+        checks.push(
+          `if (values.${f.name} && values.${f.name}.length < ${f.minLength}) errors.push("Min ${f.minLength} characters");`,
+        );
+      if (f.maxLength)
+        checks.push(
+          `if (values.${f.name} && values.${f.name}.length > ${f.maxLength}) errors.push("Max ${f.maxLength} characters");`,
+        );
+      return checks;
+    });
 
-  const patternChecks = fields.filter(f => f.pattern).map(f =>
-    `if (!${f.pattern}.test(values.${f.name})) errors.push("${f.label} has invalid format");`
-  );
+  const patternChecks = fields
+    .filter((f) => f.pattern)
+    .map(
+      (f) =>
+        `if (!${f.pattern}.test(values.${f.name})) errors.push("${f.label} has invalid format");`,
+    );
 
-  const emailChecks = fields.filter(f => f.type === "email").map(f =>
-    `if (values.${f.name} && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(values.${f.name})) errors.push("Invalid email");`
-  );
+  const emailChecks = fields
+    .filter((f) => f.type === "email")
+    .map(
+      (f) =>
+        `if (values.${f.name} && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(values.${f.name})) errors.push("Invalid email");`,
+    );
 
-  const urlChecks = fields.filter(f => f.type === "url").map(f =>
-    `if (values.${f.name} && !/^https?:\\/\\//.test(values.${f.name})) errors.push("URL must start with http:// or https://");`
-  );
+  const urlChecks = fields
+    .filter((f) => f.type === "url")
+    .map(
+      (f) =>
+        `if (values.${f.name} && !/^https?:\\/\\//.test(values.${f.name})) errors.push("URL must start with http:// or https://");`,
+    );
 
-  const telChecks = fields.filter(f => f.type === "tel").map(f =>
-    `if (values.${f.name} && !/^[+]?[1-9]\\d{1,14}$/.test(values.${f.name})) errors.push("Invalid phone (E.164: +1234567890)");`
-  );
+  const telChecks = fields
+    .filter((f) => f.type === "tel")
+    .map(
+      (f) =>
+        `if (values.${f.name} && !/^[+]?[1-9]\\d{1,14}$/.test(values.${f.name})) errors.push("Invalid phone (E.164: +1234567890)");`,
+    );
 
   const validationBlocks = [
     ...requiredChecks,
@@ -1193,18 +1430,41 @@ function generateFormComponent(pageName, fields) {
     ...telChecks,
   ];
 
-  const validationCode = validationBlocks.length > 0
-    ? `\n    ${validationBlocks.join('\n    ')}\n  `
-    : '';
+  const validationCode =
+    validationBlocks.length > 0
+      ? `\n    ${validationBlocks.join("\n    ")}\n  `
+      : "";
 
-  const resetValues = fields.map(f => {
-    if (["number","range","boolean"].includes(f.type) && f.defaultValue !== undefined) return `${f.name}: ${f.defaultValue}`;
-    if (["text","string","email","tel","url","password","textarea"].includes(f.type) && f.defaultValue !== undefined) return `${f.name}: ${JSON.stringify(f.defaultValue)}`;
-    if (["date","datetime-local"].includes(f.type) && f.defaultValue !== undefined) return `${f.name}: ${JSON.stringify(f.defaultValue)}`;
-    return `${f.name}: ${f.type === "boolean" ? false : f.type === "number" || f.type === "range" ? 0 : '""'}`;
-  }).join(", ");
+  const resetValues = fields
+    .map((f) => {
+      if (
+        ["number", "range", "boolean"].includes(f.type) &&
+        f.defaultValue !== undefined
+      )
+        return `${f.name}: ${f.defaultValue}`;
+      if (
+        [
+          "text",
+          "string",
+          "email",
+          "tel",
+          "url",
+          "password",
+          "textarea",
+        ].includes(f.type) &&
+        f.defaultValue !== undefined
+      )
+        return `${f.name}: ${JSON.stringify(f.defaultValue)}`;
+      if (
+        ["date", "datetime-local"].includes(f.type) &&
+        f.defaultValue !== undefined
+      )
+        return `${f.name}: ${JSON.stringify(f.defaultValue)}`;
+      return `${f.name}: ${f.type === "boolean" ? false : f.type === "number" || f.type === "range" ? 0 : '""'}`;
+    })
+    .join(", ");
 
-   return `import { useState, useEffect } from "react";
+  return `import { useState, useEffect } from "react";
  import { toast } from "sonner";
  import { Button } from "@/components/ui/button";
  import { api } from "@/api/axiosInstance";
@@ -1242,10 +1502,21 @@ function generateFormComponent(pageName, fields) {
 
   const sanitizeInput = (key, value) => {
     switch (key) {
-      ${fields.filter(f => ["email", "url", "tel", "text", "string"].includes(f.type)).map(f => {
-        const sanitizers = { email: "Email", url: "Url", tel: "Phone", text: "Text", string: "Text" };
-        return `case "${f.name}": return sanitize${sanitizers[f.type]}(value);`;
-      }).join('\n      ')}
+      ${fields
+        .filter((f) =>
+          ["email", "url", "tel", "text", "string"].includes(f.type),
+        )
+        .map((f) => {
+          const sanitizers = {
+            email: "Email",
+            url: "Url",
+            tel: "Phone",
+            text: "Text",
+            string: "Text",
+          };
+          return `case "${f.name}": return sanitize${sanitizers[f.type]}(value);`;
+        })
+        .join("\n      ")}
       default: return value;
     }
   };
@@ -1323,7 +1594,13 @@ function generateFormComponent(pageName, fields) {
    return (
      <form onSubmit={handleSubmit} className="space-y-4">
  ${fieldInputs}
-       ${fields.filter(f => f.type === "hidden").map(f => `      <input type="hidden" name="${f.name}" value={values.${f.name}} />`).join('\n')}
+       ${fields
+         .filter((f) => f.type === "hidden")
+         .map(
+           (f) =>
+             `      <input type="hidden" name="${f.name}" value={values.${f.name}} />`,
+         )
+         .join("\n")}
        {editing ? 
        <div className="pt-2 flex gap-2">
          <Button type="submit" disabled={loading}>
@@ -1345,7 +1622,7 @@ function generateFormComponent(pageName, fields) {
    );
  }
  `;
- }
+}
 
 async function updateRouter(routerPath, pageName, name, customRoute, spinner) {
   let routerCode = await fs.readFile(routerPath, "utf-8");
@@ -1354,11 +1631,18 @@ async function updateRouter(routerPath, pageName, name, customRoute, spinner) {
   if (!routerCode.includes(importLine)) {
     const pageImportRegex = /^const \w+Page = lazy\(.*?\);/gm;
     let lastMatch, match;
-    while ((match = pageImportRegex.exec(routerCode)) !== null) lastMatch = match;
+    while ((match = pageImportRegex.exec(routerCode)) !== null)
+      lastMatch = match;
     if (lastMatch) {
-      routerCode = routerCode.replace(lastMatch[0], `${lastMatch[0]}\n${importLine}`);
+      routerCode = routerCode.replace(
+        lastMatch[0],
+        `${lastMatch[0]}\n${importLine}`,
+      );
     } else {
-      routerCode = routerCode.replace("export function AppRouter()", `${importLine}\nexport function AppRouter()`);
+      routerCode = routerCode.replace(
+        "export function AppRouter()",
+        `${importLine}\nexport function AppRouter()`,
+      );
     }
     await fs.writeFile(routerPath, routerCode);
     spinner.succeed("Added lazy import to AppRouter.jsx");
@@ -1379,16 +1663,28 @@ async function updateRouter(routerPath, pageName, name, customRoute, spinner) {
     const wildcardRegex = /^(\s*)<Route\s+path="\*"\s+element=.*?\/>/m;
     const wildcardMatch = routerCode.match(wildcardRegex);
     if (wildcardMatch) {
-      routerCode = routerCode.replace(wildcardRegex, indentedInsert + "\n" + wildcardMatch[0]);
+      routerCode = routerCode.replace(
+        wildcardRegex,
+        indentedInsert + "\n" + wildcardMatch[0],
+      );
     } else {
-      routerCode = routerCode.replace("</Routes>", `${indentedInsert}\n      </Routes>`);
+      routerCode = routerCode.replace(
+        "</Routes>",
+        `${indentedInsert}\n      </Routes>`,
+      );
     }
     await fs.writeFile(routerPath, routerCode);
     spinner.succeed("Added route to AppRouter.jsx");
   }
 }
 
-async function updateNavigation(presetPath, pageName, routePath, icon, spinner) {
+async function updateNavigation(
+  presetPath,
+  pageName,
+  routePath,
+  icon,
+  spinner,
+) {
   if (!fs.existsSync(presetPath)) {
     console.log(chalk.yellow("⚠  app-preset.js not found — add nav manually."));
     return;
@@ -1401,13 +1697,20 @@ async function updateNavigation(presetPath, pageName, routePath, icon, spinner) 
   } else {
     const navMatch = presetCode.match(/navigation:\s*\[([\s\S]*?)\]/);
     if (!navMatch) {
-      console.log(chalk.yellow("⚠  Could not find navigation array — skipping"));
+      console.log(
+        chalk.yellow("⚠  Could not find navigation array — skipping"),
+      );
     } else {
       let existingItems = navMatch[1].trim();
-      const cleaned = existingItems.replace(/,?\s*\\$\{newItems\}/, "").replace(/,\s*\$/, "");
+      const cleaned = existingItems
+        .replace(/,?\s*\\$\{newItems\}/, "")
+        .replace(/,\s*\$/, "");
       const newItems = cleaned ? `${cleaned},\n      ${navEntry}` : navEntry;
       const replacement = `navigation: [\n      ${newItems}\n    ]`;
-      presetCode = presetCode.replace(/navigation:\s*\[([\s\S]*?)\]/, replacement);
+      presetCode = presetCode.replace(
+        /navigation:\s*\[([\s\S]*?)\]/,
+        replacement,
+      );
       await fs.writeFile(presetPath, presetCode, "utf-8");
       spinner.succeed("Added navigation entry to app-preset.js");
     }

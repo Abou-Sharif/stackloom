@@ -34,6 +34,20 @@ const PRESET_VARIANTS = [
   "custom",
 ];
 
+const PRESET_VARIANT_LABELS = {
+  saas: "SaaS — business admin starter",
+  clinic: "Clinic — healthcare operations hub",
+  studio: "Studio — creative production dashboard",
+  operations: "Operations — internal workflow console",
+  commerce: "Commerce — product & order management",
+  custom: "Custom — manual theme, layout and branding",
+};
+
+const PRESET_CHOICES = PRESET_VARIANTS.map((preset) => ({
+  name: PRESET_VARIANT_LABELS[preset],
+  value: preset,
+}));
+
 const DESIGN_THEMES = [
   "executiveBlue",
   "clinicSoft",
@@ -42,12 +56,37 @@ const DESIGN_THEMES = [
   "commerceWarm",
 ];
 
+const DESIGN_THEME_LABELS = {
+  executiveBlue: "Executive Blue — crisp, professional palette",
+  clinicSoft: "Clinic Soft — calm healthcare colors",
+  studioElevated: "Studio Elevated — rich, modern accents",
+  operationsDense: "Operations Dense — bold, data-focused UI",
+  commerceWarm: "Commerce Warm — inviting retail theme",
+};
+
+const DESIGN_THEME_CHOICES = DESIGN_THEMES.map((theme) => ({
+  name: DESIGN_THEME_LABELS[theme],
+  value: theme,
+}));
+
 const DESIGN_LAYOUTS = [
   "hybridSaas",
   "sidebarWorkspace",
   "topbarPortal",
   "rightRailStudio",
 ];
+
+const DESIGN_LAYOUT_LABELS = {
+  hybridSaas: "Hybrid SaaS — flexible topbar layout",
+  sidebarWorkspace: "Sidebar Workspace — productivity-first UI",
+  topbarPortal: "Topbar Portal — clean enterprise shell",
+  rightRailStudio: "Right Rail Studio — creative workspace layout",
+};
+
+const DESIGN_LAYOUT_CHOICES = DESIGN_LAYOUTS.map((layout) => ({
+  name: DESIGN_LAYOUT_LABELS[layout],
+  value: layout,
+}));
 
 /**
  * Load config/templates.json safely.
@@ -229,8 +268,8 @@ export default async function initCmd(projectName, options) {
     questions.push({
       type: "list",
       name: "preset",
-      message: "Choose a preset variant:",
-      choices: PRESET_VARIANTS,
+      message: "Select a UI preset variant:",
+      choices: PRESET_CHOICES,
       default: "saas",
     });
   }
@@ -239,8 +278,8 @@ export default async function initCmd(projectName, options) {
     questions.push({
       type: "list",
       name: "theme",
-      message: "Design theme:",
-      choices: DESIGN_THEMES,
+      message: "Select a design theme:",
+      choices: DESIGN_THEME_CHOICES,
       default: (answers) => {
         const p = config.preset || answers.preset;
         const map = {
@@ -259,8 +298,8 @@ export default async function initCmd(projectName, options) {
     questions.push({
       type: "list",
       name: "layout",
-      message: "Layout shell:",
-      choices: DESIGN_LAYOUTS,
+      message: "Select a layout shell:",
+      choices: DESIGN_LAYOUT_CHOICES,
       default: (answers) => {
         const p = config.preset || answers.preset;
         const map = {

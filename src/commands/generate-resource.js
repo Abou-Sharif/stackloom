@@ -7,19 +7,56 @@
  * decides *nothing* about what files exist or where they go — the recipe and
  * blueprint do — it only wires the pieces and reports.
  */
+import inquirer from "inquirer";
 import path from "node:path";
-import { ResourceDefinition, parseFieldSpec } from "../core/resource-definition.js";
+import {
+  ResourceDefinition,
+  parseFieldSpec,
+} from "../core/resource-definition.js";
 import { TemplateLoader } from "../core/template-loader.js";
 import { blueprintLoader } from "../blueprint/index.js";
 import { recipeLoader } from "../recipes/index.js";
 import { createGenerationPipeline } from "../engine/index.js";
 import { reporterFromOptions } from "../services/index.js";
-import { validateGenerateOptions, validateResourceDefinition } from "../schemas/index.js";
+import {
+  validateGenerateOptions,
+  validateResourceDefinition,
+} from "../schemas/index.js";
+
+const FIELD_TYPE_CHOICES = [
+  { name: "Text (single line)", value: "string" },
+  { name: "Long text / textarea", value: "text" },
+  { name: "Number", value: "number" },
+  { name: "Boolean", value: "boolean" },
+  { name: "Email", value: "email" },
+  { name: "Password", value: "password" },
+  { name: "Phone", value: "phone" },
+  { name: "URL", value: "url" },
+  { name: "Date", value: "date" },
+  { name: "DateTime", value: "datetime" },
+  { name: "Color", value: "color" },
+  { name: "File / upload path", value: "file" },
+  { name: "Range / slider", value: "range" },
+];
+
+const DEFAULT_PAGE_ICONS = [
+  "layout",
+  "settings",
+  "users",
+  "shield-check",
+  "bar-chart-2",
+  "folder",
+  "wand",
+];
 
 const NAMING = {
   pascal: (s) => s.charAt(0).toUpperCase() + s.slice(1),
   camel: (s) => s.charAt(0).toLowerCase() + s.slice(1),
-  kebab: (s) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/[\s_]+/g, "-").toLowerCase(),
+  kebab: (s) =>
+    s
+      .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+      .replace(/[\s_]+/g, "-")
+      .toLowerCase(),
 };
 
 /** Build a validated ResourceDefinition from --fields / --file / a bare name. */
@@ -41,9 +78,257 @@ async function resolveResource(name, options) {
   // Schema-validate before construction — typed errors, not a thrown stack trace.
   const validated = validateResourceDefinition(raw);
   if (!validated.success) {
-    throw new Error(`Invalid resource definition:\n  - ${validated.issues.join("\n  - ")}`);
+    throw new Error(
+      `Invalid resource definition:\n  - ${validated.issues.join("\n  - ")}`,
+    );
   }
   return new ResourceDefinition(validated.data);
+}
+
+function serializeFieldSpec(field) {
+  const rules = [];
+  if (field.required) rules.push("required");
+  if (field.unique) rules.push("unique");
+  if (field.minLength != null) rules.push(`minLength=${field.minLength}`);
+  if (field.maxLength != null) rules.push(`maxLength=${field.maxLength}`);
+  if (field.min != null) rules.push(`min=${field.min}`);
+  if (field.max != null) rules.push(`max=${field.max}`);
+  if (field.pattern) rules.push(`pattern=${field.pattern}`);
+  return rules.length
+    ? `${field.name}:${field.type}:${rules.join("|")}`
+    : `${field.name}:${field.type}`;
+}
+
+async function askResourceFields() {
+  const fields = [];
+  while (true) {
+    const answers = await inquirer.prompt([
+      {
+        type: "input",
+        name: "name",
+        message: "Field name:",
+        validate: (input) =>
+          /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(input) ||
+          "Field name must be a valid identifier",
+      },
+      {
+        type: "list",
+        name: "type",
+        message: "Field type:",
+        choices: FIELD_TYPE_CHOICES,
+        default: "string",
+      },
+      {
+        type: "confirm",
+        name: "required",
+        message: "Required field?",
+        default: true,
+      },
+      {
+        type: "confirm",
+        name: "unique",
+        message: "Unique field?",
+        default: false,
+      },
+      {
+        type: "input",
+        name: "minLength",
+        message: "Min length (optional):",
+        validate: (value) =>
+          !value ||
+          /^\d+$/.test(value) ||
+          "Enter a whole number or leave blank",
+      },
+      {
+        type: "input",
+        name: "maxLength",
+        message: "Max length (optional):",
+        validate: (value) =>
+          !value ||
+          /^\d+$/.test(value) ||
+          "Enter a whole number or leave blank",
+      },
+      {
+        type: "input",
+        name: "min",
+        message: "Min value (optional):",
+        validate: (value) =>
+          !value ||
+          !Number.isNaN(Number(value)) ||
+          "Enter a number or leave blank",
+      },
+      {
+        type: "input",
+        name: "max",
+        message: "Max value (optional):",
+        validate: (value) =>
+          !value ||
+          !Number.isNaN(Number(value)) ||
+          "Enter a number or leave blank",
+      },
+      {
+        type: "input",
+        name: "pattern",
+        message: "Regex pattern (optional):",
+      },
+      {
+        type: "confirm",
+        name: "more",
+        message: "Add another field?",
+        default: false,
+      },
+    ]);
+
+    fields.push({
+      name: answers.name,
+      type: answers.type,
+      required: answers.required,
+      unique: answers.unique,
+      minLength: answers.minLength ? Number(answers.minLength) : undefined,
+      maxLength: answers.maxLength ? Number(answers.maxLength) : undefined,
+      min: answers.min ? Number(answers.min) : undefined,
+      max: answers.max ? Number(answers.max) : undefined,
+      pattern: answers.pattern || undefined,
+    });
+
+    if (!answers.more) break;
+  }
+  return fields;
+}
+
+async function askPageMetadata(name, options) {
+  const defaultRoute = `/${NAMING.kebab(name)}`;
+  const answers = await inquirer.prompt([
+    {
+      type: "list",
+      name: "routeMode",
+      message: "Route path:",
+      choices: [
+        { name: `Default (${defaultRoute})`, value: "default" },
+        { name: "Custom route", value: "custom" },
+      ],
+      default: "default",
+    },
+    {
+      type: "input",
+      name: "route",
+      message: "Enter route path (must start with /):",
+      when: (answers) => answers.routeMode === "custom",
+      default: defaultRoute,
+      validate: (input) =>
+        input.trim().startsWith("/") || "Route must start with a slash (/)",
+      filter: (input) =>
+        input.trim().startsWith("/") ? input.trim() : `/${input.trim()}`,
+    },
+    {
+      type: "list",
+      name: "icon",
+      message: "Choose an icon:",
+      choices: [
+        ...DEFAULT_PAGE_ICONS.map((icon) => ({ name: icon, value: icon })),
+        { name: "Custom icon name", value: "custom" },
+      ],
+      default: DEFAULT_PAGE_ICONS[0],
+    },
+    {
+      type: "input",
+      name: "customIcon",
+      message: "Custom icon name:",
+      when: (answers) => answers.icon === "custom",
+      validate: (input) =>
+        /^[a-z0-9-]+$/i.test(input) || "Use only letters, numbers and dashes",
+      filter: (input) => input.trim(),
+    },
+    {
+      type: "confirm",
+      name: "addNav",
+      message: "Add this page to navigation?",
+      default: true,
+    },
+  ]);
+
+  return {
+    route: answers.route || defaultRoute,
+    icon: answers.icon === "custom" ? answers.customIcon : answers.icon,
+    noNav: !answers.addNav,
+  };
+}
+
+async function promptGenerateResourceOptions(type, name, options) {
+  const interactiveOptions = { ...options };
+
+  if (!name) {
+    const { resourceName } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "resourceName",
+        message: "Resource name:",
+        validate: (value) =>
+          /^[a-z0-9-_]+$/i.test(value) ||
+          "Use only letters, numbers, dashes or underscores",
+      },
+    ]);
+    name = resourceName;
+  }
+
+  if (!interactiveOptions.file && !interactiveOptions.fields) {
+    const { addFields } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "addFields",
+        message: "Add fields to this resource?",
+        default: true,
+      },
+    ]);
+    if (addFields) {
+      const fields = await askResourceFields();
+      interactiveOptions.fields = fields.map(serializeFieldSpec).join(";");
+    }
+  }
+
+  if (type === "page") {
+    const pageMeta = await askPageMetadata(name, interactiveOptions);
+    interactiveOptions.route = pageMeta.route;
+    interactiveOptions.icon = pageMeta.icon;
+    interactiveOptions.noNav = pageMeta.noNav;
+  }
+
+  if (!interactiveOptions.arch) {
+    const { arch } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "arch",
+        message: "Architecture level:",
+        choices: [
+          { name: "Lightweight — minimal structure", value: "lightweight" },
+          { name: "Moderate — standard MERN", value: "moderate" },
+          { name: "Advanced — enterprise-ready", value: "advanced" },
+        ],
+        default: "moderate",
+      },
+    ]);
+    interactiveOptions.arch = arch;
+  }
+
+  if (!interactiveOptions.formMode) {
+    const { formMode } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "formMode",
+        message: "Form mode:",
+        choices: [
+          { name: "Page form", value: "page" },
+          { name: "Modal dialog", value: "modal" },
+          { name: "Sidepanel / drawer", value: "sidepanel" },
+          { name: "Inline form above content", value: "inline" },
+        ],
+        default: "page",
+      },
+    ]);
+    interactiveOptions.formMode = formMode;
+  }
+
+  return { ...interactiveOptions, name };
 }
 
 /**
@@ -54,30 +339,50 @@ async function resolveResource(name, options) {
 export default async function generateResource(type, name, options = {}) {
   const reporter = reporterFromOptions(options);
   const projectRoot = process.cwd();
+  let executionOptions = { ...options };
 
   try {
-    if (!name) throw new Error(`A name is required: loom generate ${type} <Name>`);
-
-    const optionCheck = validateGenerateOptions(options);
-    if (!optionCheck.success) {
-      throw new Error(`Invalid options:\n  - ${optionCheck.issues.join("\n  - ")}`);
+    if (executionOptions.interactive) {
+      const interactiveResult = await promptGenerateResourceOptions(
+        type,
+        name,
+        executionOptions,
+      );
+      name = interactiveResult.name;
+      executionOptions = interactiveResult;
     }
 
-    const resource = await resolveResource(name, options);
-    const blueprint = await blueprintLoader.load(projectRoot);
-    const recipe = await recipeLoader.load(options.recipe || type, blueprint);
+    if (!name)
+      throw new Error(`A name is required: loom generate ${type} <Name>`);
 
-    reporter.step(`Generating ${recipe.name} "${resource.name}" (${blueprint.architecture.name})`);
+    const optionCheck = validateGenerateOptions(executionOptions);
+    if (!optionCheck.success) {
+      throw new Error(
+        `Invalid options:\n  - ${optionCheck.issues.join("\n  - ")}`,
+      );
+    }
+
+    const resource = await resolveResource(name, executionOptions);
+    const blueprint = await blueprintLoader.load(projectRoot);
+    const recipe = await recipeLoader.load(
+      executionOptions.recipe || type,
+      blueprint,
+    );
+
+    reporter.step(
+      `Generating ${recipe.name} "${resource.name}" (${blueprint.architecture.name})`,
+    );
 
     // The recipe's `when` evaluation context: params + derived flags.
     const recipeContext = {
-      withFrontend: options.frontend !== false,
-      withTests: Boolean(options.withTests),
-      architecture: options.arch || "moderate",
-      formMode: options.formMode || "page",
+      withFrontend: executionOptions.frontend !== false,
+      withTests: Boolean(executionOptions.withTests),
+      architecture: executionOptions.arch || "moderate",
+      formMode: executionOptions.formMode || "page",
       usesTypeScript: blueprint.usesTypeScript(projectRoot),
     };
-    for (const field of resource.fields) recipeContext[`hasField:${field.name}`] = true;
+    for (const field of resource.fields)
+      recipeContext[`hasField:${field.name}`] = true;
 
     // Template-path tokens ({kebab}, {Name}) used by recipe `out`/`template`.
     const vars = { kebab: resource.kebabName, Name: resource.pascalName };
@@ -89,10 +394,14 @@ export default async function generateResource(type, name, options = {}) {
       resource,
       blueprint,
       options: recipeContext,
-      project: { root: projectRoot, usesTypeScript: recipeContext.usesTypeScript },
+      project: {
+        root: projectRoot,
+        usesTypeScript: recipeContext.usesTypeScript,
+      },
       utils: NAMING,
     };
-    const renderer = (templatePath) => templates.render(templatePath, templateContext, projectRoot);
+    const renderer = (templatePath) =>
+      templates.render(templatePath, templateContext, projectRoot);
 
     const pipeline = createGenerationPipeline({ renderer });
     const ctx = await pipeline.run({
@@ -102,7 +411,7 @@ export default async function generateResource(type, name, options = {}) {
       recipeContext,
       vars,
       templateContext,
-      dryRun: Boolean(options.dryRun),
+      dryRun: Boolean(executionOptions.dryRun),
     });
 
     const { files, dryRun } = ctx.result;
@@ -126,7 +435,10 @@ export default async function generateResource(type, name, options = {}) {
     reporter.error(err.message);
     reporter.result({ error: err.message });
     reporter.flush();
-    process.exitCode = err.name === "BlueprintLoadError" || err.name === "RecipeLoadError" ? 1 : 2;
+    process.exitCode =
+      err.name === "BlueprintLoadError" || err.name === "RecipeLoadError"
+        ? 1
+        : 2;
     return;
   }
   reporter.flush();

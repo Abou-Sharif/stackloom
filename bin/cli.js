@@ -42,11 +42,17 @@ program
   .description(branding.description)
   .version(pkg.version)
   // Global output flags — consumed via reporterFromOptions(program.opts()).
-  .option("-q, --quiet", "Errors and warnings only (auto-on under CI / when piped)")
+  .option(
+    "-q, --quiet",
+    "Errors and warnings only (auto-on under CI / when piped)",
+  )
   .option("--json", "Structured JSON output for scripts and CI")
   .option("--no-color", "Disable ANSI colour")
   .option("--debug", "Show diagnostic detail")
-  .option("-y, --yes", "Assume defaults; never prompt (fails fast on missing input)");
+  .option(
+    "-y, --yes",
+    "Assume defaults; never prompt (fails fast on missing input)",
+  );
 
 // Init: create fresh project from template (always new copy)
 program
@@ -74,12 +80,24 @@ program
     "--deploy-targets <list>",
     "Comma-separated deploy targets (docker,vercel,railway)",
   )
-  .option("--architecture <level>", "Architecture: lightweight|moderate|advanced")
+  .option(
+    "--architecture <level>",
+    "Architecture: lightweight|moderate|advanced",
+  )
   .option("--no-install", "Skip pnpm install")
   .option("--target <dir>", "Output directory")
-  .option("--force", "Overwrite existing directory or continue past validation errors")
-  .option("--local-template <path>", "Use a local directory as the template source (skips download)")
-  .option("--template <name>", "Template key from config/templates.json (default: mern)")
+  .option(
+    "--force",
+    "Overwrite existing directory or continue past validation errors",
+  )
+  .option(
+    "--local-template <path>",
+    "Use a local directory as the template source (skips download)",
+  )
+  .option(
+    "--template <name>",
+    "Template key from config/templates.json (default: mern)",
+  )
   .action((projectName, options) =>
     // FIX: global flags like --quiet live on program.opts(); merge them into
     // the command-level options so init.js sees a single options object.
@@ -100,13 +118,25 @@ generateCmd
   .option("--fields <spec>", "Field spec: 'name:type:rules;...'")
   .option("--file <path>", "Path to a resource definition file")
   .option("--recipe <name>", "Recipe to run: resource|module|page", "resource")
-  .option("--arch <level>", "Architecture: lightweight|moderate|advanced", "moderate")
-  .option("--form-mode <mode>", "Form mount mode: page|modal|sidepanel|inline", "page")
+  .option(
+    "--arch <level>",
+    "Architecture: lightweight|moderate|advanced",
+    "moderate",
+  )
+  .option(
+    "--form-mode <mode>",
+    "Form mount mode: page|modal|sidepanel|inline",
+    "page",
+  )
   .option("--with-tests", "Generate test files")
   .option("--no-frontend", "Skip frontend generation")
+  .option("--interactive", "Prompt interactively for missing resource details")
   .option("--dry-run", "Preview the file plan without writing")
   .action((name, options) =>
-    generateResource(options.recipe || "resource", name, { ...program.opts(), ...options }),
+    generateResource(options.recipe || "resource", name, {
+      ...program.opts(),
+      ...options,
+    }),
   );
 
 generateCmd
