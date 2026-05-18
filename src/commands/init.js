@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename);
 // repo — the canonical templates now live under stackloom/. The real value is
 // loaded from config/templates.json; this constant is only the last-resort
 // fallback for installations where the config file has been deleted.
-const FALLBACK_REPO = "stackloom/stackloom-templates";
+const FALLBACK_REPO = "Abou-Sharif/stackloom-templates";
 const FALLBACK_BRANCH = "main";
 const FALLBACK_TEMPLATE_DIR = "mern";
 
@@ -160,7 +160,9 @@ export default async function initCmd(projectName, options) {
 
   // 0. Resolve project name and parent dir
   let resolvedProjectName = projectName;
-  const parentDir = options.target ? path.resolve(options.target) : process.cwd();
+  const parentDir = options.target
+    ? path.resolve(options.target)
+    : process.cwd();
 
   if (!resolvedProjectName) {
     const { name } = await inquirer.prompt([
@@ -302,7 +304,8 @@ export default async function initCmd(projectName, options) {
       // Resolve each prompt's `default` (function or value) without showing it.
       const synthetic = {};
       for (const q of questions) {
-        const def = typeof q.default === "function" ? q.default(synthetic) : q.default;
+        const def =
+          typeof q.default === "function" ? q.default(synthetic) : q.default;
         synthetic[q.name] = def;
       }
       interactiveAnswers = synthetic;
@@ -414,13 +417,21 @@ export default async function initCmd(projectName, options) {
   }
 
   if (allErrors.length > 0) {
-    console.error(chalk.red("\n✖ Template validation failed. Missing required files:"));
+    console.error(
+      chalk.red("\n✖ Template validation failed. Missing required files:"),
+    );
     for (const e of allErrors) console.error(chalk.red(`  - ${e}`));
     console.error("\nSuggested fixes:");
     console.error(`  1. Check the template is complete: ls -R "${outDir}"`);
-    console.error(`  2. Re-run with a local template: loom init <name> --local-template <path>`);
-    console.error(`  3. Force continue (not recommended): loom init <name> --force`);
-    console.error("\nDocs: https://github.com/stackloom/stackloom-templates\n");
+    console.error(
+      `  2. Re-run with a local template: loom init <name> --local-template <path>`,
+    );
+    console.error(
+      `  3. Force continue (not recommended): loom init <name> --force`,
+    );
+    console.error(
+      "\nDocs: https://github.com/Abou-Sharif/stackloom-templates\n",
+    );
 
     if (!options.force) {
       try {
@@ -431,7 +442,11 @@ export default async function initCmd(projectName, options) {
       // EXIT: top-level only — intentional
       process.exit(1);
     } else {
-      log(chalk.yellow("⚠ --force set; continuing despite validation errors. You accepted responsibility."));
+      log(
+        chalk.yellow(
+          "⚠ --force set; continuing despite validation errors. You accepted responsibility.",
+        ),
+      );
     }
   }
 
@@ -441,7 +456,13 @@ export default async function initCmd(projectName, options) {
     await applyPresetCustomization(outDir, finalConfig);
     await syncProjectDependencies(outDir);
 
-    const sanitizePath = path.join(outDir, "frontend", "src", "utils", "sanitize.js");
+    const sanitizePath = path.join(
+      outDir,
+      "frontend",
+      "src",
+      "utils",
+      "sanitize.js",
+    );
     if (!fs.existsSync(sanitizePath)) {
       await fs.ensureDir(path.dirname(sanitizePath));
       await fs.writeFile(sanitizePath, sanitizeUtilContent);
@@ -483,8 +504,12 @@ export default async function initCmd(projectName, options) {
         console.warn(
           chalk.yellow(
             `⚠ pnpm install failed in ${sub}.\n` +
-              (stdout ? `  stdout: ${stdout.split("\n").slice(-5).join("\n  ")}\n` : "") +
-              (stderr ? `  stderr: ${stderr.split("\n").slice(-5).join("\n  ")}\n` : "") +
+              (stdout
+                ? `  stdout: ${stdout.split("\n").slice(-5).join("\n  ")}\n`
+                : "") +
+              (stderr
+                ? `  stderr: ${stderr.split("\n").slice(-5).join("\n  ")}\n`
+                : "") +
               `  Failed command: pnpm install --no-frozen-lockfile\n` +
               `  Run manually: pnpm -C "${subPath}" install`,
           ),
@@ -502,7 +527,11 @@ export default async function initCmd(projectName, options) {
         await fs.copy(examplePath, envPath);
       }
     } catch (err) {
-      console.warn(chalk.yellow(`⚠ Could not copy ${sub}/.env.example → .env: ${err.message}`));
+      console.warn(
+        chalk.yellow(
+          `⚠ Could not copy ${sub}/.env.example → .env: ${err.message}`,
+        ),
+      );
     }
   }
 
@@ -529,7 +558,7 @@ export default async function initCmd(projectName, options) {
         `\n✖ Smoke check failed — scaffold may be incomplete.\n` +
           `  Missing: ${smokeMissing.join(", ")}\n\n` +
           `  This is likely a template issue. Please report it:\n` +
-          `  https://github.com/stackloom/stackloom-templates/issues\n`,
+          `  https://github.com/Abou-Sharif/stackloom-templates/issues\n`,
       ),
     );
     // EXIT: top-level only — intentional
@@ -567,14 +596,21 @@ async function downloadTemplate(url, destDir, redirectsLeft = 5) {
       const status = res.statusCode || 0;
       if ([301, 302, 303, 307, 308].includes(status)) {
         if (!res.headers.location) {
-          return reject(new Error(`HTTP ${status} redirect without Location header (${url})`));
+          return reject(
+            new Error(
+              `HTTP ${status} redirect without Location header (${url})`,
+            ),
+          );
         }
         if (redirectsLeft <= 0) {
           return reject(new Error(`too many redirects following ${url}`));
         }
         res.resume();
-        return downloadTemplate(res.headers.location, destDir, redirectsLeft - 1)
-          .then(resolve, reject);
+        return downloadTemplate(
+          res.headers.location,
+          destDir,
+          redirectsLeft - 1,
+        ).then(resolve, reject);
       }
       if (status !== 200) {
         res.resume();
