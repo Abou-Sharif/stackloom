@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename);
 // repo — the canonical templates now live under stackloom/. The real value is
 // loaded from config/templates.json; this constant is only the last-resort
 // fallback for installations where the config file has been deleted.
-const FALLBACK_REPO = "stackloom/stackloom-templates";
+const FALLBACK_REPO = "Abou-Sharif/stackloom-templates";
 const FALLBACK_BRANCH = "main";
 const FALLBACK_TEMPLATE_DIR = "mern";
 

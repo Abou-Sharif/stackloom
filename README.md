@@ -24,11 +24,11 @@ loom new my-app
 
 The CLI is a generic engine — it hardcodes nothing about MERN. Three layers:
 
-| Layer | Lives in | Answers |
-|-------|----------|---------|
-| **Blueprint** | a project's `.loom/blueprint.json` | *where* things go — directory roots, path templates, injection anchors |
-| **Recipe** | `src/recipes/builtin/*.json` | *what* gets generated — files, injections, dependencies, gated by `when` conditions |
-| **Engine** | `src/engine/` | *how* — a transactional pipeline: `plan → render → inject → validate → commit` |
+| Layer         | Lives in                           | Answers                                                                             |
+| ------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| **Blueprint** | a project's `.loom/blueprint.json` | _where_ things go — directory roots, path templates, injection anchors              |
+| **Recipe**    | `src/recipes/builtin/*.json`       | _what_ gets generated — files, injections, dependencies, gated by `when` conditions |
+| **Engine**    | `src/engine/`                      | _how_ — a transactional pipeline: `plan → render → inject → validate → commit`      |
 
 Generation is **all-or-nothing**: every file is rendered into a staging
 transaction, syntax-validated, and only a fully-valid set is committed. A
@@ -39,24 +39,24 @@ not an engine change.
 
 ## Commands
 
-| Command | What it does |
-|---------|--------------|
-| `loom new [name]` | Create a new project from the starter template |
-| `loom generate resource <Name>` | **Unified, engine-backed generator** — full-stack CRUD resource |
-| `loom generate resource <Name> --recipe module` | Backend-only module |
-| `loom generate resource <Name> --recipe page` | Frontend page wired to an existing resource |
-| `loom generate theme` / `loom generate deploy` | Import a shadcn theme / emit deploy configs |
-| `loom check` | Verify project health — blueprint validity, anchor integrity, env file |
-| `loom env [--sync]` | Diff `.env` against `.env.example`; `--sync` appends missing keys |
-| `loom rename <name>` | Rebrand the CLI itself (bin name, help text, output) |
-| `loom cleanup [preset]` | De-brand a project — `minimal` \| `production` (full) \| `template` |
-| `loom customize` | Theme / layout / brand / data-display |
-| `loom wizard` | Interactive guided setup |
-| `loom doctor` | Environment + project health check |
-| `loom rollback` | Undo the last generation |
-| `loom finalize` | Lint + test + build for production |
-| `loom preset [name]` | Apply a predefined preset |
-| `loom remove <type> <name>` | Remove a generated resource and its references |
+| Command                                         | What it does                                                           |
+| ----------------------------------------------- | ---------------------------------------------------------------------- |
+| `loom new [name]`                               | Create a new project from the starter template                         |
+| `loom generate resource <Name>`                 | **Unified, engine-backed generator** — full-stack CRUD resource        |
+| `loom generate resource <Name> --recipe module` | Backend-only module                                                    |
+| `loom generate resource <Name> --recipe page`   | Frontend page wired to an existing resource                            |
+| `loom generate theme` / `loom generate deploy`  | Import a shadcn theme / emit deploy configs                            |
+| `loom check`                                    | Verify project health — blueprint validity, anchor integrity, env file |
+| `loom env [--sync]`                             | Diff `.env` against `.env.example`; `--sync` appends missing keys      |
+| `loom rename <name>`                            | Rebrand the CLI itself (bin name, help text, output)                   |
+| `loom cleanup [preset]`                         | De-brand a project — `minimal` \| `production` (full) \| `template`    |
+| `loom customize`                                | Theme / layout / brand / data-display                                  |
+| `loom wizard`                                   | Interactive guided setup                                               |
+| `loom doctor`                                   | Environment + project health check                                     |
+| `loom rollback`                                 | Undo the last generation                                               |
+| `loom finalize`                                 | Lint + test + build for production                                     |
+| `loom preset [name]`                            | Apply a predefined preset                                              |
+| `loom remove <type> <name>`                     | Remove a generated resource and its references                         |
 
 > `generate module`, `generate page`, and `make:resource` still work but are
 > **superseded** by `generate resource` — they print a deprecation notice.
@@ -97,15 +97,15 @@ idempotent — re-running is safe.
 
 ### Architecture levels (`--arch`)
 
-| Level | Backend shape |
-|-------|---------------|
-| `lightweight` | Inline controller, no service layer — minimal files |
-| `moderate` *(default)* | Full layering — `models/`, `services/`, `controllers/`, `routes/` |
-| `advanced` | `moderate` + generated tests + batch/transaction operations |
+| Level                  | Backend shape                                                     |
+| ---------------------- | ----------------------------------------------------------------- |
+| `lightweight`          | Inline controller, no service layer — minimal files               |
+| `moderate` _(default)_ | Full layering — `models/`, `services/`, `controllers/`, `routes/` |
+| `advanced`             | `moderate` + generated tests + batch/transaction operations       |
 
 ### Form modes (`--form-mode`)
 
-`page` *(default)* · `modal` · `sidepanel` · `inline` — selects the list-page
+`page` _(default)_ · `modal` · `sidepanel` · `inline` — selects the list-page
 shell and how the shared form component is mounted. One form component, four
 thin page shells.
 
@@ -171,26 +171,26 @@ Edit `config/templates.json` to point at a fork or a different branch.
 Every StackLoom template must ship these files; `loom init` aborts with a
 descriptive error if any are missing:
 
-| File | Purpose |
-|---|---|
-| `frontend/package.json` · `backend/package.json` | per-tier dependency manifests |
-| `frontend/src/config/app-preset.js` | preset surface the CLI rewrites |
-| `frontend/src/main.jsx` · `frontend/index.html` · `backend/server.js` · `backend/src/app.js` | entry points |
-| `.loom/blueprint.json` | template contract |
-| `.loom/metadata.json` | engine compatibility |
+| File                                                                                         | Purpose                         |
+| -------------------------------------------------------------------------------------------- | ------------------------------- |
+| `frontend/package.json` · `backend/package.json`                                             | per-tier dependency manifests   |
+| `frontend/src/config/app-preset.js`                                                          | preset surface the CLI rewrites |
+| `frontend/src/main.jsx` · `frontend/index.html` · `backend/server.js` · `backend/src/app.js` | entry points                    |
+| `.loom/blueprint.json`                                                                       | template contract               |
+| `.loom/metadata.json`                                                                        | engine compatibility            |
 
 The starter template lives at
-[`stackloom/stackloom-templates`](https://github.com/stackloom/stackloom-templates).
+[`Abou-Sharif/stackloom-templates`](https://github.com/Abou-Sharif/stackloom-templates).
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `HTTP 404 from https://github.com/...` | Wrong `defaultRepo` / branch in `config/templates.json` | Edit the config or pass `--local-template` |
-| `local template path does not exist: …` | Typo in `--local-template` or env var | Use the absolute path printed in the error |
-| `Template validation failed. Missing required files: ...` | Template is incomplete or wrong directory passed | `ls -R` the printed path; rerun with `--local-template <correct-path>` |
-| `pnpm install failed in frontend` | `pnpm` not installed or network down | Run `pnpm -C <project>/frontend install` manually |
-| `Smoke check failed` | Template shipped without the contract files | File an issue at the template repo |
+| Symptom                                                   | Likely cause                                            | Fix                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `HTTP 404 from https://github.com/...`                    | Wrong `defaultRepo` / branch in `config/templates.json` | Edit the config or pass `--local-template`                             |
+| `local template path does not exist: …`                   | Typo in `--local-template` or env var                   | Use the absolute path printed in the error                             |
+| `Template validation failed. Missing required files: ...` | Template is incomplete or wrong directory passed        | `ls -R` the printed path; rerun with `--local-template <correct-path>` |
+| `pnpm install failed in frontend`                         | `pnpm` not installed or network down                    | Run `pnpm -C <project>/frontend install` manually                      |
+| `Smoke check failed`                                      | Template shipped without the contract files             | File an issue at the template repo                                     |
 
 ## Local development
 
