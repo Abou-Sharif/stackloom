@@ -1,11 +1,15 @@
 import { describe, it, expect } from "vitest";
+import fs from "node:fs/promises";
+import path from "node:path";
 import os from "node:os";
 import { evaluateCondition, recipeLoader, RecipeLoadError } from "../index.js";
 import { blueprintLoader } from "../../blueprint/index.js";
 
 describe("evaluateCondition", () => {
   it("resolves identifiers (missing = falsy)", () => {
-    expect(evaluateCondition("withFrontend", { withFrontend: true })).toBe(true);
+    expect(evaluateCondition("withFrontend", { withFrontend: true })).toBe(
+      true,
+    );
     expect(evaluateCondition("withFrontend", {})).toBe(false);
   });
 
@@ -15,16 +19,30 @@ describe("evaluateCondition", () => {
   });
 
   it("supports !, &&, ||, ==, != and parentheses", () => {
-    expect(evaluateCondition("!withFrontend", { withFrontend: false })).toBe(true);
+    expect(evaluateCondition("!withFrontend", { withFrontend: false })).toBe(
+      true,
+    );
     expect(evaluateCondition("a && b", { a: true, b: false })).toBe(false);
     expect(evaluateCondition("a || b", { a: false, b: true })).toBe(true);
-    expect(evaluateCondition('architecture == "advanced"', { architecture: "advanced" })).toBe(true);
-    expect(evaluateCondition('architecture != "advanced"', { architecture: "moderate" })).toBe(true);
-    expect(evaluateCondition("(a || b) && c", { a: true, b: false, c: false })).toBe(false);
+    expect(
+      evaluateCondition('architecture == "advanced"', {
+        architecture: "advanced",
+      }),
+    ).toBe(true);
+    expect(
+      evaluateCondition('architecture != "advanced"', {
+        architecture: "moderate",
+      }),
+    ).toBe(true);
+    expect(
+      evaluateCondition("(a || b) && c", { a: true, b: false, c: false }),
+    ).toBe(false);
   });
 
   it("allows : in identifiers (hasField:slug)", () => {
-    expect(evaluateCondition("hasField:slug", { "hasField:slug": true })).toBe(true);
+    expect(evaluateCondition("hasField:slug", { "hasField:slug": true })).toBe(
+      true,
+    );
   });
 
   it("rejects malformed expressions", () => {
@@ -49,7 +67,9 @@ describe("RecipeLoader", () => {
   });
 
   it("rejects an unknown recipe", async () => {
-    await expect(recipeLoader.load("nope-not-real")).rejects.toThrow(RecipeLoadError);
+    await expect(recipeLoader.load("nope-not-real")).rejects.toThrow(
+      RecipeLoadError,
+    );
   });
 });
 
@@ -77,7 +97,9 @@ describe("Recipe.plan", () => {
     expect(backendOnly.files.length).toBe(5);
     expect(backendOnly.inject.length).toBe(1);
     expect(backendOnly.requires.length).toBe(0);
-    expect(backendOnly.files[0].out).toBe("backend/src/modules/order/models/Order.js");
+    expect(backendOnly.files[0].out).toBe(
+      "backend/src/modules/order/models/Order.js",
+    );
 
     const full = recipe.plan({
       context: { withFrontend: true, withTests: true, "hasField:slug": true },
@@ -101,7 +123,9 @@ describe("Recipe.plan", () => {
       projectRoot: os.tmpdir(),
       vars: { kebab: "order", Name: "Order" },
     });
-    expect(plan.files.some((f) => f.out.endsWith("types/order.types.ts"))).toBe(true);
+    expect(plan.files.some((f) => f.out.endsWith("types/order.types.ts"))).toBe(
+      true,
+    );
   });
 
   it("lets formMode select the page-shell template", async () => {
@@ -122,7 +146,41 @@ describe("Recipe.plan", () => {
     }
 
     // The dedicated routed form page exists only for "page" mode.
-    expect(planFor("page").files.some((f) => f.out.endsWith("FormPage.jsx"))).toBe(true);
-    expect(planFor("modal").files.some((f) => f.out.endsWith("FormPage.jsx"))).toBe(false);
+    expect(
+      planFor("page").files.some((f) => f.out.endsWith("FormPage.jsx")),
+    ).toBe(true);
+    expect(
+      planFor("modal").files.some((f) => f.out.endsWith("FormPage.jsx")),
+    ).toBe(false);
+  });
+});
+
+describe("Resource recipe templates", () => {
+  it("uses plural resource paths for backend mounts, frontend routes, and navigation", async () => {
+    const root = process.cwd();
+    const routeMount = await fs.readFile(
+      path.join(root, "src", "templates", "snippets", "route-mount.ejs"),
+      "utf-8",
+    );
+    const routeEntry = await fs.readFile(
+      path.join(root, "src", "templates", "snippets", "route-entry.ejs"),
+      "utf-8",
+    );
+    const routeDetail = await fs.readFile(
+      path.join(root, "src", "templates", "resource", "page-detail.jsx.ejs"),
+      "utf-8",
+    );
+    const navEntry = await fs.readFile(
+      path.join(root, "src", "templates", "snippets", "nav-entry.ejs"),
+      "utf-8",
+    );
+
+    expect(routeMount).toContain("resource.pluralKebab");
+    expect(routeMount).not.toContain('router.use("/<%= resource.kebabName %>"');
+    expect(routeEntry).toContain('path="/admin/<%= resource.pluralKebab %>"');
+    expect(routeDetail).toContain(
+      "navigate(`/admin/<%= resource.pluralKebab %>/edit/${id}`)",
+    );
+    expect(navEntry).toContain('href: "/admin/<%= resource.pluralKebab %>"');
   });
 });

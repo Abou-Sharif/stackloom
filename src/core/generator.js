@@ -42,12 +42,12 @@ export class Generator {
         ? resourceDef
         : new ResourceDefinition(resourceDef);
 
-     await this.validateProject();
-     const context = await this.buildContext();
-     await this.generateBackend(context);
-     await this.ensureBackendDeps(context);
+    await this.validateProject();
+    const context = await this.buildContext();
+    await this.generateBackend(context);
+    await this.ensureBackendDeps(context);
 
-     if (this.withFrontend) {
+    if (this.withFrontend) {
       await this.generateFrontend(context);
     }
 
@@ -87,7 +87,10 @@ export class Generator {
    */
   async validateProject() {
     const blueprint = await this.getBlueprint();
-    const modulesDir = blueprint.resolvePath("backend.modules", this.projectRoot);
+    const modulesDir = blueprint.resolvePath(
+      "backend.modules",
+      this.projectRoot,
+    );
     if (!(await fs.pathExists(modulesDir))) {
       throw new Error(
         "Not a MERN Starter Kit backend. Run from project root where backend/ exists.",
@@ -346,10 +349,47 @@ export class Generator {
     }
 
     let code = await fs.readFile(indexPath, "utf-8");
-    const mountLine = `router.use("/${context.resource.kebabName}", require("../modules/${context.resource.kebabName}/routes/${context.resource.name}.routes"));`;
+    const mountLine = `router.use("/${context.resource.pluralKebab}", require("../modules/${context.resource.kebabName}/routes/${context.resource.name}.routes"));`;
+    const singularMountLine = `router.use("/${context.resource.kebabName}", require("../modules/${context.resource.kebabName}/routes/${context.resource.name}.routes"));`;
 
+    // If the exact desired mount already exists, skip.
     if (code.includes(mountLine)) {
       this.log("[SKIP] Route already mounted in index.js");
+      return;
+    }
+
+    // If there is an existing mount for the same path but pointing to a different
+    // module (e.g. leftover `../modules/products/...`), replace it so the newly
+    // generated module takes precedence. This prevents older modules from
+    // capturing requests intended for the new resource.
+    const anyMountRegex = new RegExp(
+      `router\\.use\("/${context.resource.pluralKebab}",\\s*require\\((?:'|\")\\.\\.\\/modules\\\/[\\w-\\/]+\\/routes\\\/[\\w-\\.]+\\.routes\\"\)\\)\\s*;?`,
+      "g",
+    );
+    if (anyMountRegex.test(code)) {
+      code = code.replace(anyMountRegex, mountLine);
+      await fs.writeFile(indexPath, code, "utf-8");
+      this.generatedFiles.push({
+        output: "backend/src/routes/index.js",
+        action: "UPDATE",
+        reason: "replace-conflicting-mount",
+      });
+      this.log(
+        `[UPDATE] backend/src/routes/index.js (replaced conflicting mount)`,
+      );
+      return;
+    }
+
+    // If there is a singular-style mount (older template), upgrade it to plural.
+    if (code.includes(singularMountLine)) {
+      code = code.replace(singularMountLine, mountLine);
+      await fs.writeFile(indexPath, code, "utf-8");
+      this.generatedFiles.push({
+        output: "backend/src/routes/index.js",
+        action: "UPDATE",
+        reason: "upgrade-route-path",
+      });
+      this.log(`[UPDATE] backend/src/routes/index.js`);
       return;
     }
 
@@ -412,7 +452,8 @@ export class Generator {
       changed = true;
     }
 
-    const routePath = `/admin/${kebabName}`;
+    const routePath = `/admin/${context.resource.pluralKebab}`;
+    const oldRoutePath = `/admin/${kebabName}`;
     const routeBlock = `${pageName}List`;
     const routeInsert = `\n      {/* ${pageName} */}
       <Route
@@ -421,17 +462,22 @@ export class Generator {
       />`;
 
     if (!code.includes(`path="${routePath}"`)) {
-      const wildcardRegex = /^(\s*)<Route\s+path="\*"\s+element=.*?\/>/m;
-      const match = code.match(wildcardRegex);
-
-      if (match) {
-        const indent = match[1];
-        const indentedInsert = routeInsert.replace(/\n/g, "\n" + indent);
-        code = code.replace(wildcardRegex, indentedInsert + "\n" + match[0]);
+      if (code.includes(`path="${oldRoutePath}"`)) {
+        code = code.replace(`path="${oldRoutePath}"`, `path="${routePath}"`);
+        changed = true;
       } else {
-        code = code.replace("</Routes>", `${routeInsert}\n      </Routes>`);
+        const wildcardRegex = /^(\s*)<Route\s+path="\*"\s+element=.*?\/>/m;
+        const match = code.match(wildcardRegex);
+
+        if (match) {
+          const indent = match[1];
+          const indentedInsert = routeInsert.replace(/\n/g, "\n" + indent);
+          code = code.replace(wildcardRegex, indentedInsert + "\n" + match[0]);
+        } else {
+          code = code.replace("</Routes>", `${routeInsert}\n      </Routes>`);
+        }
+        changed = true;
       }
-      changed = true;
     }
 
     if (changed) {
@@ -461,12 +507,28 @@ export class Generator {
     }
 
     let presetCode = await fs.readFile(presetPath, "utf-8");
-    const routePath = `/admin/${context.resource.kebabName}`;
+    const routePath = `/admin/${context.resource.pluralKebab}`;
     const navLabel = context.resource.name.replace(/([A-Z])/g, " $1").trim();
     const navEntry = `{ label: "${navLabel}", href: "${routePath}", icon: "layout" },`;
 
+    const oldRoutePath = `/admin/${context.resource.kebabName}`;
     if (presetCode.includes(`href: "${routePath}"`)) {
       this.log("[SKIP] Navigation entry already exists");
+      return;
+    }
+
+    if (presetCode.includes(`href: "${oldRoutePath}"`)) {
+      presetCode = presetCode.replace(
+        `href: "${oldRoutePath}"`,
+        `href: "${routePath}"`,
+      );
+      await fs.writeFile(presetPath, presetCode, "utf-8");
+      this.generatedFiles.push({
+        output: "frontend/src/config/app-preset.js",
+        action: "UPDATE",
+        reason: "upgrade-navigation-path",
+      });
+      this.log(`[UPDATE] frontend/src/config/app-preset.js (navigation)`);
       return;
     }
 
@@ -499,40 +561,46 @@ export class Generator {
       reason: "add-nav",
     });
     this.log(`[UPDATE] frontend/src/config/app-preset.js (navigation)`);
-   }
+  }
 
-   async ensureBackendDeps(context) {
-     const backendDir = context.project.backendDir;
-     const pkgPath = path.join(this.projectRoot, backendDir, "package.json");
-     if (!fs.existsSync(pkgPath)) return;
+  async ensureBackendDeps(context) {
+    const backendDir = context.project.backendDir;
+    const pkgPath = path.join(this.projectRoot, backendDir, "package.json");
+    if (!fs.existsSync(pkgPath)) return;
 
-     const pkg = await fs.readJSON(pkgPath);
-     const required = {};
+    const pkg = await fs.readJSON(pkgPath);
+    const required = {};
 
-     // slugify needed if resource has slug, code, or sku field
-     if (this.resource.fields.some(f => ["slug", "code", "sku"].includes(f.name))) {
-       required.slugify = "^1.6.6";
-     }
+    // slugify needed if resource has slug, code, or sku field
+    if (
+      this.resource.fields.some((f) => ["slug", "code", "sku"].includes(f.name))
+    ) {
+      required.slugify = "^1.6.6";
+    }
 
-     // No express-validator needed for resource generator (uses Joi)
+    // No express-validator needed for resource generator (uses Joi)
 
-     if (Object.keys(required).length === 0) return;
+    if (Object.keys(required).length === 0) return;
 
-     let changed = false;
-     const deps = pkg.dependencies || (pkg.dependencies = {});
-     for (const [name, version] of Object.entries(required)) {
-       if (!deps[name]) {
-         deps[name] = version;
-         changed = true;
-       }
-     }
-     if (changed) {
-       await fs.writeJSON(pkgPath, pkg, { spaces: 2 });
-       this.log(chalk.green("✓ Added backend dependencies: " + Object.keys(required).join(", ")));
-     }
-   }
+    let changed = false;
+    const deps = pkg.dependencies || (pkg.dependencies = {});
+    for (const [name, version] of Object.entries(required)) {
+      if (!deps[name]) {
+        deps[name] = version;
+        changed = true;
+      }
+    }
+    if (changed) {
+      await fs.writeJSON(pkgPath, pkg, { spaces: 2 });
+      this.log(
+        chalk.green(
+          "✓ Added backend dependencies: " + Object.keys(required).join(", "),
+        ),
+      );
+    }
+  }
 
-   async updateProjectFiles(context) {
+  async updateProjectFiles(context) {
     // future logic
   }
 

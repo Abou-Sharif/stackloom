@@ -23,7 +23,7 @@ export default function <%= resource.pascalName %>DetailPage() {
           <Button variant="outline" onClick={() => navigate(-1)}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
-          <Button onClick={() => navigate(`/admin/<%= resource.kebabName %>/edit/${id}`)}>
+          <Button onClick={() => navigate(`/admin/<%= resource.pluralKebab %>/edit/${id}`)}>
             <Edit className="mr-2 h-4 w-4" /> Edit
           </Button>
         </div>
