@@ -31,3 +31,4 @@ Thumbs.db
 .fsk-backup-*
 .npmrc
 pnpm-lock.yaml
+.npmrc
