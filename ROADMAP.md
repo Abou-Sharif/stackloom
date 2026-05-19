@@ -19,7 +19,7 @@ This file tracks larger capabilities discussed for **solo devs first**, without 
 
 ## Next: upgrade path (CLI + template drift)
 
-- **`loom upgrade --write` / migrations:** today `loom upgrade` is **read-only**; next step is optional fixes (e.g. refresh anchors) behind a flag.
+- **`loom upgrade --write` / migrations:** shipped. `loom upgrade` now supports `--write` for safe compatibility metadata migrations.
 - **Recipe migrations:** versioned transforms (e.g. rename anchor comments, split files) applied in a transaction, same as generation.
 
 ## Next: architecture-only output

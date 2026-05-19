@@ -48,6 +48,31 @@ describe("loom upgrade", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it("creates or refreshes metadata when upgrade --write is requested", async () => {
+    const root = tmp("up-write");
+    const builtin = readFileSync(blueprintLoader.builtinPath, "utf-8");
+    mkdirSync(path.join(root, ".loom"), { recursive: true });
+    writeFileSync(path.join(root, ".loom", "blueprint.json"), builtin);
+    mkdirSync(path.join(root, "backend"), { recursive: true });
+    mkdirSync(path.join(root, "frontend"), { recursive: true });
+
+    const r = await upgrade({
+      projectRoot: root,
+      reporter: silent(),
+      cliVersion: "99.0.0",
+      write: true,
+    });
+
+    expect(r.ok).toBe(true);
+    expect(r.errors).toBe(0);
+    expect(r.migrationsApplied).toHaveLength(1);
+    const metadata = JSON.parse(
+      readFileSync(path.join(root, ".loom", "metadata.json"), "utf-8"),
+    );
+    expect(metadata.engineCompatibility).toBe("stackloom-cli@>=99.0.0");
+    rmSync(root, { recursive: true, force: true });
+  });
+
   it("errors when CLI is below engine.minCliVersion", async () => {
     const root = tmp("up-oldcli");
     const data = JSON.parse(readFileSync(blueprintLoader.builtinPath, "utf-8"));

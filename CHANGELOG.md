@@ -6,6 +6,7 @@ All notable changes to the CLI will be documented in this file.
 
 ### Added
 
+- **Safe project upgrade** — added `loom upgrade --write` to apply low-risk compatibility metadata migrations for older scaffolded projects.
 - **UI variant customization** — added `loom customize ui` and `loom customize ui set <variant>` to switch card, modal, select, pagination, and record card styles.
 - **UI variant discovery** — added `loom customize ui list-ui` to list available UI variant presets.
 

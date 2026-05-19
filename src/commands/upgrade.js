@@ -1,8 +1,8 @@
 /**
  * `loom upgrade` — compare this CLI to the project's blueprint + template metadata.
  *
- * Read-only: prints a compatibility summary and suggested next steps. Does not
- * mutate the project (future: guided migrations — see ROADMAP.md).
+ * `--write` enables safe, low-risk migrations for older scaffolded projects.
+ * Only non-destructive compatibility metadata updates are applied.
  */
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
@@ -20,6 +20,75 @@ function readCliPackage() {
   return JSON.parse(
     readFileSync(new URL("../../package.json", import.meta.url), "utf-8"),
   );
+}
+
+async function createBackup(projectRoot, reporter, filePaths) {
+  const existingFiles = [];
+  for (const filePath of filePaths) {
+    if (await fs.pathExists(filePath)) existingFiles.push(filePath);
+  }
+  if (!existingFiles.length) return null;
+
+  const backupDir = path.join(
+    projectRoot,
+    ".loom",
+    `upgrade-backup-${Date.now()}`,
+  );
+  await fs.ensureDir(backupDir);
+
+  for (const filePath of existingFiles) {
+    const relativePath = path.relative(projectRoot, filePath);
+    const destination = path.join(backupDir, relativePath);
+    await fs.ensureDir(path.dirname(destination));
+    await fs.copy(filePath, destination, { overwrite: false });
+  }
+
+  reporter.info(`Created backup of existing files at ${path.relative(projectRoot, backupDir)}`);
+  return backupDir;
+}
+
+async function refreshMetadata(projectRoot, reporter, cliPkg, cliVersion) {
+  const metadataPath = path.join(projectRoot, ".loom", "metadata.json");
+  const expectedCompatibility = `${cliPkg.name}@>=${cliVersion}`;
+  let metadata = {};
+  let changed = false;
+
+  if (await fs.pathExists(metadataPath)) {
+    try {
+      metadata = await fs.readJSON(metadataPath);
+    } catch {
+      reporter.warn(
+        "Could not parse existing .loom/metadata.json. Creating a fresh compatibility marker.",
+      );
+      metadata = {};
+      changed = true;
+    }
+  }
+
+  if (metadata.engineCompatibility !== expectedCompatibility) {
+    metadata.engineCompatibility = expectedCompatibility;
+    changed = true;
+  }
+
+  if (changed) {
+    await fs.ensureDir(path.dirname(metadataPath));
+    await fs.writeJSON(metadataPath, metadata, { spaces: 2 });
+    reporter.step("Updated .loom/metadata.json with current CLI compatibility");
+    return metadataPath;
+  }
+
+  return null;
+}
+
+async function applySafeProjectMigrations(projectRoot, reporter, cliPkg, cliVersion) {
+  const migratedFiles = [];
+  const metadataPath = path.join(projectRoot, ".loom", "metadata.json");
+
+  await createBackup(projectRoot, reporter, [metadataPath]);
+  const refreshed = await refreshMetadata(projectRoot, reporter, cliPkg, cliVersion);
+  if (refreshed) migratedFiles.push(refreshed);
+
+  return migratedFiles;
 }
 
 function looksLikeStackloomProject(root) {
@@ -46,9 +115,11 @@ export default async function upgrade(options = {}) {
   const projectRoot = options.projectRoot ?? process.cwd();
   const cliPkg = readCliPackage();
   const cliVersion = options.cliVersion ?? cliPkg.version;
+  const write = Boolean(options.write);
 
   let errors = 0;
   let warnings = 0;
+  let migrationsApplied = [];
 
   const bump = (kind) => {
     if (kind === "error") errors++;
@@ -134,6 +205,22 @@ export default async function upgrade(options = {}) {
     else if (ok)
       reporter.warn(`Check finished with ${warnings} warning(s) — review messages above.`);
 
+    migrationsApplied = [];
+    if (ok && write) {
+      reporter.step("Applying safe upgrade migrations");
+      migrationsApplied = await applySafeProjectMigrations(
+        projectRoot,
+        reporter,
+        cliPkg,
+        cliVersion,
+      );
+      if (migrationsApplied.length) {
+        reporter.success(`Applied ${migrationsApplied.length} safe project migration(s).`);
+      } else {
+        reporter.info("No safe migration changes were necessary.");
+      }
+    }
+
     reporter.result({
       ok,
       cliVersion,
@@ -141,17 +228,18 @@ export default async function upgrade(options = {}) {
       blueprintSource: bp.source,
       warnings,
       errors,
+      migrationsApplied,
     });
     if (!ok) process.exitCode = 1;
   } catch (err) {
     reporter.error(err.message);
-    reporter.result({ ok: false, error: err.message, cliVersion });
+    reporter.result({ ok: false, error: err.message, cliVersion, migrationsApplied });
     process.exitCode = 1;
     bump("error");
     reporter.flush();
-    return { ok: false, warnings, errors };
+    return { ok: false, warnings, errors, migrationsApplied };
   }
 
   reporter.flush();
-  return { ok: errors === 0, warnings, errors };
+  return { ok: errors === 0, warnings, errors, migrationsApplied };
 }

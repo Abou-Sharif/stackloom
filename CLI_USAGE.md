@@ -23,9 +23,12 @@ Run from the **project root** (where `backend/` and `frontend/` live, or `.loom/
 
 ```bash
 loom upgrade
+loom upgrade --write
 ```
 
-Read-only summary: this CLI’s version vs the blueprint’s `engine.minCliVersion` and `schemaVersion`, plus optional `.loom/metadata.json` (`engineCompatibility`, `stack`). Does not modify files — use it before pulling template or CLI updates.
+`loom upgrade` is a read-only compatibility summary: it checks this CLI’s version against the blueprint’s `engine.minCliVersion` and `schemaVersion`, plus optional `.loom/metadata.json` (`engineCompatibility`, `stack`).
+
+Add `--write` to apply safe, low-risk migrations after the compatibility check. The CLI preserves a backup of updated metadata before writing.
 
 ## Start a project
 

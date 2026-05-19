@@ -356,10 +356,13 @@ program
   .description("Verify project + environment health (blueprint, anchors, env)")
   .action((options) => check({ ...program.opts(), ...options }));
 
-// Upgrade — CLI vs blueprint / template compatibility (read-only)
+// Upgrade — CLI vs blueprint / template compatibility
 program
   .command("upgrade")
-  .description("Check CLI vs project blueprint and template metadata (read-only)")
+  .description(
+    "Check CLI vs project blueprint and template metadata; pass --write to apply safe upgrade migrations.",
+  )
+  .option("--write", "Apply safe, low-risk project migrations after compatibility check")
   .action((options) => upgrade({ ...program.opts(), ...options }));
 
 // Env — keep .env in sync with .env.example
