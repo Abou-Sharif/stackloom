@@ -2,6 +2,17 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.4.0] - 2026-05-19
+
+### Added
+
+- **UI variant customization** — added `loom customize ui` and `loom customize ui set <variant>` to switch card, modal, select, pagination, and record card styles.
+- **UI variant discovery** — added `loom customize ui list-ui` to list available UI variant presets.
+
+### Documentation
+
+- Updated `CLI_USAGE.md` to include the new `ui` customization commands.
+
 ## [1.3.0] - 2026-05-19
 
 ### Added

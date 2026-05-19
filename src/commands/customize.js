@@ -23,6 +23,8 @@ const DESIGN_LAYOUTS = [
 
 const DATA_TEMPLATES = ["dashboard", "denseOps", "editorial", "commerce"];
 
+const UI_VARIANTS = ["refined", "operations", "studio", "commerce", "clinic"];
+
 /**
  * @param {string} projectRoot
  */
@@ -235,6 +237,63 @@ export async function customizeDataSet(template) {
   }
 }
 
+// ── UI VARIANTS ──
+/**
+ * @param {string} variant
+ */
+export async function customizeUiSet(variant) {
+  const spinner = ora();
+  const projectRoot = process.cwd();
+  let presetCode = await ensureProject(projectRoot);
+
+  let selected = variant;
+  if (!selected) {
+    const answers = await inquirer.prompt([
+      {
+        type: "list",
+        name: "ui",
+        message: "Select a UI variant preset:",
+        choices: UI_VARIANTS,
+      },
+    ]);
+    selected = answers.ui;
+  }
+
+  if (UI_VARIANTS.includes(selected)) {
+    if (!presetCode.includes("uiVariants")) {
+      presetCode = presetCode.replace(
+        /import \{ dataDisplayTemplates \} from "\.\/data-display-templates";/,
+        `import { dataDisplayTemplates } from "./data-display-templates";\nimport { uiVariants } from "./ui-variants";`,
+      );
+    }
+    if (/ui:\s*uiVariants\.\w+/.test(presetCode)) {
+      presetCode = presetCode.replace(
+        /ui:\s*uiVariants\.\w+/,
+        `ui: uiVariants.${selected}`,
+      );
+    } else {
+      presetCode = presetCode.replace(
+        /(dataDisplay:\s*dataDisplayTemplates\.\w+,)/,
+        `$1\n    ui: uiVariants.${selected},`,
+      );
+    }
+    await fs.writeFile(getPresetPath(projectRoot), presetCode);
+    spinner.succeed(`UI variant set to "${selected}"`);
+  } else {
+    spinner.fail(`Invalid UI variant. Available: ${UI_VARIANTS.join(", ")}`);
+  }
+}
+
+export function customizeListUi() {
+  console.log(chalk.cyan("\nAvailable UI variants:\n"));
+  UI_VARIANTS.forEach((v) => console.log(`  ${chalk.white("•")} ${v}`));
+  console.log(
+    chalk.dim(
+      "\nControls card, modal, select, pagination, and record card styles.\n",
+    ),
+  );
+}
+
 // ── LISTERS ──
 export function customizeListThemes() {
   console.log(chalk.cyan("\nAvailable themes:\n"));
@@ -257,7 +316,9 @@ export default {
   customizeLayoutSet,
   customizeBrandSet,
   customizeDataSet,
+  customizeUiSet,
   customizeListThemes,
   customizeListLayouts,
   customizeListData,
+  customizeListUi,
 };

@@ -186,6 +186,8 @@ loom remove page reports --force
 loom customize theme list-themes
 loom customize layout list-layouts
 loom customize data list-data
+loom customize ui list-ui
+loom customize ui set studio
 loom customize brand set --name "Acme" --tagline "Ship faster"
 ```
 
@@ -195,7 +197,8 @@ loom customize brand set --name "Acme" --tagline "Ship faster"
 | `loom customize layout`                    | Layout shell operations                       |
 | `loom customize brand`                     | Brand name / tagline / description operations |
 | `loom customize data`                      | Data display template operations              |
-| `list-themes`, `list-layouts`, `list-data` | Show available built-in options               |
+| `loom customize ui`                        | Card, modal, select, pagination variant presets |
+| `list-themes`, `list-layouts`, `list-data`, `list-ui` | Show available built-in options     |
 
 ## Env / project maintenance
 

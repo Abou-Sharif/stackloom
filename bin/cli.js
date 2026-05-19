@@ -305,6 +305,13 @@ dataCmd
   .description("Switch data display template")
   .action(customize.customizeDataSet);
 
+// ── UI variants ──
+const uiCmd = customizeCmd.command("ui").description("UI component variant operations");
+uiCmd
+  .command("set [variant]")
+  .description("Switch card, modal, select, and pagination styles")
+  .action(customize.customizeUiSet);
+
 // ── Discovery helpers ──
 customizeCmd
   .command("list-themes")
@@ -318,6 +325,10 @@ customizeCmd
   .command("list-data")
   .description("List available data display templates")
   .action(customize.customizeListData);
+customizeCmd
+  .command("list-ui")
+  .description("List available UI variant presets")
+  .action(customize.customizeListUi);
 
 // Finalize
 program
