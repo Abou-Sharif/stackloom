@@ -1,20 +1,207 @@
 # CLI Usage Cookbook
 
-Practical recipes. For the conceptual overview see [`README.md`](./README.md).
+Practical recipes. For a conceptual overview see [`README.md`](./README.md).
+
+## Global flags
+
+Every command accepts these global options:
+
+| Flag            | Description                                                                   |
+| --------------- | ----------------------------------------------------------------------------- |
+| `-q, --quiet`   | Errors and warnings only; automatically enabled in CI or when output is piped |
+| `--json`        | Structured JSON output for scripts and CI                                     |
+| `--no-color`    | Disable ANSI color                                                            |
+| `--debug`       | Show diagnostic detail                                                        |
+| `-y, --yes`     | Assume defaults and never prompt                                              |
+| `-V, --version` | Print the CLI version                                                         |
+| `-h, --help`    | Show help for a command                                                       |
 
 ## Start a project
 
 ```bash
-loom new my-app                              # interactive
-loom new my-app --preset saas --no-install   # non-interactive
+loom init my-app                              # interactive
+loom init my-app --preset saas --no-install   # non-interactive
+loom new my-app                               # alias for loom init
 cd my-app && pnpm install && pnpm dev
 ```
 
-> `loom init` is still accepted as an alias for `loom new`.
+### `loom init` options
 
-## Local Template Development
+| Flag                      | Available values                                                                   | What it does                                                              |
+| ------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `--preset <variant>`      | `saas`, `clinic`, `studio`, `operations`, `commerce`, `custom`                     | Select a starter preset shape                                             |
+| `--theme <theme>`         | `executiveBlue`, `clinicSoft`, `studioElevated`, `operationsDense`, `commerceWarm` | Choose the UI theme palette                                               |
+| `--layout <layout>`       | `hybridSaas`, `sidebarWorkspace`, `topbarPortal`, `rightRailStudio`                | Choose the app shell layout                                               |
+| `--brand-name <name>`     | any text                                                                           | Set the brand name used in README/brand files                             |
+| `--tagline <text>`        | any text                                                                           | Set the slogan/tagline used in the project                                |
+| `--extra-modules <list>`  | `users,products,...`                                                               | Include additional backend modules in the starter app                     |
+| `--deploy-targets <list>` | `docker,vercel,railway`                                                            | Generate deployment config for the selected targets                       |
+| `--architecture <level>`  | `lightweight`, `moderate`, `advanced`                                              | Choose the default generated architecture complexity                      |
+| `--no-install`            | n/a                                                                                | Skip `pnpm install` after scaffold creation                               |
+| `--target <dir>`          | any path                                                                           | Write the new project into a custom directory                             |
+| `--force`                 | n/a                                                                                | Overwrite an existing target directory or continue past validation issues |
+| `--local-template <path>` | path                                                                               | Use a local template tree instead of downloading                          |
+| `--template <name>`       | template key from `config/templates.json` (default: `mern`)                        | Select a template source by name                                          |
 
-Use a local template directory instead of downloading from GitHub:
+## Interactive project extension
+
+```bash
+loom wizard
+loom wizard --skip-confirm
+```
+
+The wizard walks through adding pages, resources, routes, icons, and deployment targets.
+
+| Option           | What it does                          |
+| ---------------- | ------------------------------------- |
+| `--skip-confirm` | Skip the final review and commit step |
+
+## Generate a full-stack resource
+
+```bash
+loom generate resource Product --fields "name:string:required;price:number;slug:string"
+```
+
+A single `generate resource` command can create or extend:
+
+- backend model, service, controller, routes, validator
+- frontend admin pages, table/form components, API client, hooks
+- route and nav mounting in the app shell
+- backend route registration in `backend/src/routes/index.js`
+
+### `loom generate resource` options
+
+| Flag                 | Values                                 | What it does                                      |
+| -------------------- | -------------------------------------- | ------------------------------------------------- |
+| `--fields <spec>`    | `name:type:rules;...`                  | Define the resource schema inline                 |
+| `--file <path>`      | file path                              | Load schema from a resource definition file       |
+| `--recipe <name>`    | `resource`, `module`, `page`           | Choose the kind of generation                     |
+| `--arch <level>`     | `lightweight`, `moderate`, `advanced`  | Choose how much backend structure is generated    |
+| `--form-mode <mode>` | `page`, `modal`, `sidepanel`, `inline` | Choose how the form is mounted in the UI          |
+| `--with-tests`       | n/a                                    | Generate test files for the resource              |
+| `--no-frontend`      | n/a                                    | Skip frontend generation, backend-only output     |
+| `--interactive`      | n/a                                    | Prompt for missing resource details interactively |
+| `--dry-run`          | n/a                                    | Preview the file plan without writing any changes |
+| `--relations <spec>` | `virtual:hasMany:Model:foreignKey;…`   | Mongoose virtual `hasMany` populate (see below)   |
+
+### `--relations` (virtual hasMany)
+
+Each segment is four colon-separated parts: `virtualField:hasMany:ChildPascalModel:foreignKeyOnChild`.
+
+Example on `Customer`: `--relations "orders:hasMany:Order:customerId"` exposes `customer.orders` as `Order` docs where `order.customerId === customer._id`. Multiple relations: separate with `;`.
+
+### `--recipe` behaviors
+
+| Recipe     | What it generates                             |
+| ---------- | --------------------------------------------- |
+| `resource` | Full-stack CRUD resource (backend + frontend) |
+| `module`   | Backend-only module                           |
+| `page`     | Frontend page wired to an existing resource   |
+
+### Architecture levels (`--arch`)
+
+| Level         | What it gives you                                                  |
+| ------------- | ------------------------------------------------------------------ |
+| `lightweight` | Minimal backend with inline controller, fewer files                |
+| `moderate`    | Default full-layered `models`, `services`, `controllers`, `routes` |
+| `advanced`    | Includes generated tests and batch/transaction helpers             |
+
+### Form mount modes (`--form-mode`)
+
+| Mode        | What it gives you                         |
+| ----------- | ----------------------------------------- |
+| `page`      | Default page-based edit/create form shell |
+| `modal`     | Dialog-style form overlay                 |
+| `sidepanel` | Side sheet / panel form shell             |
+| `inline`    | Inline form above the listing table       |
+
+### Field spec format
+
+```bash
+--fields "name:type:rule|rule;name2:type2:rule"
+```
+
+Example: `"email:email:required|unique;age:number:min=0;role:select"`
+
+ObjectId to another model: `categoryId:ref[Category]:required` — `Category` must match the referenced resource’s Mongoose model name (PascalCase).
+
+## Available generate commands
+
+```bash
+loom generate module User
+loom generate page Dashboard
+loom generate theme
+loom generate deploy
+```
+
+> `loom generate resource` is the recommended unified generator. `generate module` and `generate page` are still available but are effectively superseded.
+
+## Remove generated content
+
+```bash
+loom remove module products
+loom remove page reports --force
+```
+
+| Command                     | What it does                                             |
+| --------------------------- | -------------------------------------------------------- |
+| `loom remove module <name>` | Remove a generated backend module and cleanup references |
+| `loom remove page <name>`   | Remove a generated frontend page and nav entry           |
+| `--force`                   | Skip the confirmation prompt                             |
+
+## Customize design and branding
+
+```bash
+loom customize theme list-themes
+loom customize layout list-layouts
+loom customize data list-data
+loom customize brand set --name "Acme" --tagline "Ship faster"
+```
+
+| Command                                    | What it does                                  |
+| ------------------------------------------ | --------------------------------------------- |
+| `loom customize theme`                     | Theme operations and imports                  |
+| `loom customize layout`                    | Layout shell operations                       |
+| `loom customize brand`                     | Brand name / tagline / description operations |
+| `loom customize data`                      | Data display template operations              |
+| `list-themes`, `list-layouts`, `list-data` | Show available built-in options               |
+
+## Env / project maintenance
+
+```bash
+loom env
+loom env --sync
+loom check
+loom doctor
+loom rollback --verbose
+loom finalize
+```
+
+| Command                   | What it does                                       |
+| ------------------------- | -------------------------------------------------- |
+| `loom env`                | Compare `.env` to `.env.example`                   |
+| `loom env --sync`         | Append missing keys to `.env`                      |
+| `loom check`              | Verify blueprint, anchor, and project health       |
+| `loom doctor`             | Validate local Node, pnpm, and project environment |
+| `loom rollback`           | Undo the last generation action                    |
+| `loom rollback --force`   | Skip confirmation when rolling back                |
+| `loom rollback --verbose` | Show detailed rollback logs                        |
+| `loom finalize`           | Lint, test, and build for production readiness     |
+
+## Rebrand the CLI
+
+```bash
+loom rename acme --display-name "ACME"
+```
+
+| Option                  | What it does                             |
+| ----------------------- | ---------------------------------------- |
+| `--display-name <name>` | Set the human-readable CLI display name  |
+| `--description <text>`  | Set the description shown in help output |
+
+After renaming, re-link with `pnpm install` or `pnpm link --global` so the new binary name is available.
+
+## Local template development
 
 ```bash
 loom init my-app --local-template /path/to/your/template
@@ -27,133 +214,24 @@ export STACKLOOM_TEMPLATES_PATH=/path/to/your/templates
 loom init my-app
 ```
 
-`STACKLOOM_TEMPLATES_PATH` points at a directory **containing** template
-subfolders (e.g. `mern/`); `--local-template` points directly at the template
-root.
+`STACKLOOM_TEMPLATES_PATH` should point to a directory containing template keys like `mern/`. `--local-template` points directly at a specific template root.
 
-## Template Contract
+## Template contract
 
 Every StackLoom template must include:
 
-| File | Purpose |
-|---|---|
-| `frontend/package.json` | Frontend dependencies |
-| `backend/package.json` | Backend dependencies |
-| `frontend/src/config/app-preset.js` | App configuration contract |
-| `frontend/src/main.jsx` | Frontend entry point |
-| `frontend/index.html` | Vite host page |
-| `backend/server.js` | Backend boot file |
-| `backend/src/app.js` | Express app factory |
-| `.loom/blueprint.json` | Template contract declaration |
-| `.loom/metadata.json` | Engine compatibility metadata |
+| File                                | Purpose                       |
+| ----------------------------------- | ----------------------------- |
+| `frontend/package.json`             | Frontend dependency manifest  |
+| `backend/package.json`              | Backend dependency manifest   |
+| `frontend/src/config/app-preset.js` | App configuration contract    |
+| `frontend/src/main.jsx`             | Frontend entry point          |
+| `frontend/index.html`               | Vite host page                |
+| `backend/server.js`                 | Backend boot file             |
+| `backend/src/app.js`                | Express app factory           |
+| `.loom/blueprint.json`              | Template contract declaration |
+| `.loom/metadata.json`               | Engine compatibility metadata |
 
-## Init Flags
+## Names and usage
 
-| Flag | Description |
-|---|---|
-| `--local-template <path>` | Use a local directory as the template source |
-| `--template <name>` | Template key from `config/templates.json` (default: `mern`) |
-| `--force` | Overwrite existing directory **and** continue past validation errors |
-| `-q, --quiet` | Suppress non-essential output |
-
-## Generate a full-stack resource
-
-```bash
-# model + service + controller + routes + validator
-# + admin pages + table/form components + API client + hooks — all linked
-loom generate resource Product --fields "name:string:required;price:number;slug:string"
-```
-
-What gets created and **linked**:
-- `backend/src/modules/product/{models,services,controllers,routes}/…`
-- `backend/src/utils/validators/Product.validator.js`
-- route mounted in `backend/src/routes/index.js`
-- `frontend/src/pages/admin/product/{ListPage,DetailPage,FormPage}.jsx`
-- `frontend/src/components/{tables,forms}/Product*.jsx`
-- `frontend/src/api/product.api.js`, `frontend/src/hooks/useProduct.js`
-- lazy import + `<Route>` in `AppRouter.jsx`, nav entry in `app-preset.js`
-
-### Variations
-
-```bash
-loom generate resource Order  --fields "total:number" --form-mode modal      # Dialog form
-loom generate resource Note   --fields "body:text"    --form-mode sidepanel  # Sheet form
-loom generate resource Task   --fields "title:string" --form-mode inline     # form above table
-loom generate resource Tag    --fields "label:string" --arch lightweight     # minimal, inline controller
-loom generate resource Report --fields "name:string"  --arch advanced        # + tests + batch ops
-loom generate resource Lead   --fields "email:email"  --recipe module        # backend only
-loom generate resource Lead   --fields "email:email"  --recipe page          # frontend only
-loom generate resource Draft  --fields "title:string" --dry-run              # preview, write nothing
-loom generate resource User   --file ./user.resource.js                      # definition from a file
-```
-
-### Field spec
-
-```
-name:type:rule|rule;name2:type2:rule
-```
-
-- **types** — `string` `text` `number` `boolean` `date` `email` `password`
-  `phone` `url` `ref` `select` `multiselect` `image` `file` `color` `range` …
-- **rules** — `required` `unique` `min=N` `max=N` `minLength=N` `maxLength=N`
-  `pattern=…` `default=…`
-
-Example: `"email:email:required|unique;age:number:min=0;role:select"`
-
-## Inspect & maintain
-
-```bash
-loom check                 # blueprint valid? anchors intact? env file present?
-loom env                   # which .env keys are missing vs .env.example
-loom env --sync            # append the missing keys
-loom doctor                # Node / pnpm / project structure / deps
-loom rollback              # undo the last generation
-```
-
-## Customise design
-
-```bash
-loom customize theme set executiveBlue
-loom customize theme import --file ./brand.css
-loom customize layout set sidebarWorkspace
-loom customize brand set --name "Acme" --tagline "Ship faster"
-loom customize data set dashboard
-loom customize list-themes      # also: list-layouts, list-data
-```
-
-## Rebrand the CLI itself
-
-```bash
-loom rename acme --display-name "ACME"
-pnpm install            # re-link — the binary is now `acme`
-```
-
-## Prepare for handoff / production
-
-```bash
-loom cleanup minimal      # remove demo content + branding
-loom cleanup production   # full de-brand — nothing reveals the starter kit
-loom cleanup template     # extract reusable parts into .template/
-loom finalize             # lint + test + build
-```
-
-`cleanup` refuses to run unless the working directory has both `backend/` and
-`frontend/` — it is destructive by design.
-
-## CI / scripting
-
-```bash
-loom generate resource Product --fields "name:string" --quiet      # errors only
-loom generate resource Product --fields "name:string" --json       # structured output
-loom check --json                                                  # machine-readable health
-```
-
-Under CI or when piped, output auto-quiets. Exit codes: `0` ok, `1`
-user/validation error, `2` engine error.
-
-## Remove a generated resource
-
-```bash
-loom remove module products          # prompts for confirmation
-loom remove page reports --force     # skip confirmation
-```
+`loom init` and `loom new` both create projects. `loom generate resource` is the recommended unified command to create resources. `loom init` supports preset, theme, layout, and template selection so docs, starter files, and architecture are created correctly.

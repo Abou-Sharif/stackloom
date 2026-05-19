@@ -8,6 +8,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -56,6 +57,19 @@ export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel
 <% }); -%>
                   </SelectContent>
                 </Select>
+<% } else if (f.type === 'ref' || f.type === 'reference') { -%>
+                <Input
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  placeholder="<%- (f.special && f.special.model) || 'Related' %> ObjectId (24 hex chars)"
+                  {...field}
+                  value={field.value ?? ''}
+                  disabled={isLoading}
+                />
+                <FormDescription>
+                  MongoDB ObjectId of the linked <%- (f.special && f.special.model) || 'record' %>.
+                </FormDescription>
 <% } else { -%>
                 <Input type="<%- f.formInputType %>" {...field} disabled={isLoading} />
 <% } -%>

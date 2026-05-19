@@ -8,30 +8,34 @@ Clone the repository and install dependencies:
 
 ```bash
 pnpm install
-cd packages/cli
-pnpm start -- --help
+node bin/cli.js --help
+pnpm link --global
+loom --help
 ```
 
 ## 2. Project Structure
 
 - `bin/cli.js`: Entry point and command definitions.
 - `src/commands/`: Implementation of individual CLI commands.
-- `src/core/`: The "Engine" — `Generator`, `ResourceDefinition`, `MarkerStrategy`.
-- `src/templates/`: EJS templates for code generation.
+- `src/recipes/`: Declarative generation recipes.
+- `src/templates/`: EJS templates for generated files and snippets.
+- `src/engine/`: Transactional generation core.
+- `src/services/`: Shared collaborators like the reporter.
+- `src/branding/`: CLI rebranding support.
 - `src/utils/`: Shared utilities (logging, naming, validation).
 
 ## 3. Adding a New Generator
 
 1. **Create Template**: Add `.ejs` files in `src/templates/`.
-2. **Update Generator**: Modify `src/core/generator.js` to include your new template in the appropriate generation method (e.g., `generateBackend`).
-3. **Register Command**: Add the command to `bin/cli.js` using the `makeResource` pattern.
+2. **Add or update a recipe**: Edit `src/recipes/builtin/<name>.json` to declare files, injections, and `when` conditions.
+3. **Register the command or recipe**: The generator may already be available via `loom generate resource`; add a command in `bin/cli.js` only when a dedicated CLI entry is required.
 
 ## 4. Writing Tests
 
 We use **Vitest** for unit tests and a custom **Smoke Test** for end-to-end validation.
 
-- **Unit Tests**: Place in `src/core/__tests__/`. Run with `pnpm test`.
-- **Smoke Tests**: Run `pnpm smoke`. This creates a real project and runs all commands against it.
+- **Unit Tests**: Place in `src/__tests__/` or subsystem `__tests__/` directories. Run with `pnpm test`.
+- **Smoke Tests**: Run `pnpm test:smoke` or `node test-smoke.js`.
 
 ## 5. Coding Principles
 
@@ -43,6 +47,6 @@ We use **Vitest** for unit tests and a custom **Smoke Test** for end-to-end vali
 ## 6. Releasing
 
 1. Update `CHANGELOG.md`.
-2. Bump version in `package.json`.
-3. Run `pnpm smoke` to ensure no regressions.
+2. Bump version in `package.json` if needed.
+3. Run `pnpm test` and `pnpm test:smoke` to ensure no regressions.
 4. `npm publish`.

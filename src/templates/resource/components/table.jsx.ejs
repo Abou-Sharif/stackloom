@@ -35,6 +35,8 @@ export const <%= resource.pascalName %>Table = ({ data, onEdit, onDelete, onView
                    item.<%- field.name %> ? 'Yes' : 'No'
                  <% } else if (field.type === 'date' || field.type === 'datetime') { %>
                    new Date(item.<%- field.name %>).toLocaleDateString()
+                 <% } else if (field.type === 'ref' || field.type === 'reference') { %>
+                   item.<%- field.name %> ? String(item.<%- field.name %>).slice(0, 8) + '…' : '—'
                  <% } else { %>
                    item.<%- field.name %>
                  <% } %>}

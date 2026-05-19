@@ -108,5 +108,38 @@ export function validateResourceDefinition(raw) {
     issues.push(`fields: duplicate field name(s): ${duplicates.join(", ")}`);
   }
 
+  for (const field of fields) {
+    if (field.type === "ref" || field.type === "reference") {
+      const model = field.special && field.special.model;
+      if (!model || typeof model !== "string" || !PASCAL_CASE.test(model.trim())) {
+        issues.push(
+          `fields.${field.name}: ref/reference needs target model in brackets, e.g. ${field.name}:ref[Category]`,
+        );
+      }
+    }
+  }
+
+  const rel = parsed.data.relations;
+  if (rel && Array.isArray(rel.hasMany)) {
+    rel.hasMany.forEach((entry, i) => {
+      const p = `relations.hasMany[${i}]`;
+      if (!entry || typeof entry !== "object") {
+        issues.push(`${p}: expected an object with field, model, foreignKey`);
+        return;
+      }
+      if (!entry.field || !IDENTIFIER.test(entry.field)) {
+        issues.push(`${p}.field: must be a valid identifier`);
+      }
+      if (!entry.model || !PASCAL_CASE.test(entry.model)) {
+        issues.push(`${p}.model: must be PascalCase (Mongoose model name)`);
+      }
+      if (!entry.foreignKey || !IDENTIFIER.test(entry.foreignKey)) {
+        issues.push(`${p}.foreignKey: must be a valid identifier (the field on the child doc pointing to this resource)`);
+      }
+    });
+  } else if (rel && rel.hasMany != null && !Array.isArray(rel.hasMany)) {
+    issues.push("relations.hasMany: must be an array when present");
+  }
+
   return issues.length ? { success: false, issues } : { success: true, data: parsed.data };
 }

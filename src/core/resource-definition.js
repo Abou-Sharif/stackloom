@@ -18,7 +18,11 @@ export class ResourceDefinition {
     this.name = name; // 'User' | 'Product' | 'Order'
     this.collection = collection || this.toKebabCase(name) + "s";
     this.fields = (fields || []).map((f) => new FieldDefinition(f));
-    this.relations = relations || { belongsTo: [], hasMany: [] };
+    const rel = relations || {};
+    this.relations = {
+      belongsTo: Array.isArray(rel.belongsTo) ? rel.belongsTo : [],
+      hasMany: Array.isArray(rel.hasMany) ? rel.hasMany : [],
+    };
     this.ui = ui || {};
     this.features = features || {};
     this.hooks = hooks || {};
@@ -128,6 +132,10 @@ export class FieldDefinition {
     const v = this.validation;
 
     switch (this.type) {
+      case "ref":
+      case "reference":
+        rule += "string().hex().length(24)";
+        break;
       case "number":
       case "range":
         rule += "number()";
@@ -154,10 +162,13 @@ export class FieldDefinition {
         if (v.pattern) rule += `.pattern(${v.pattern})`;
     }
 
-    if (v.required) rule += ".required()";
+    if (this.type === "ref" || this.type === "reference") {
+      if (v.required) rule += ".required()";
+      else rule += ".allow(null, '').optional()";
+    } else if (v.required) rule += ".required()";
     else rule += ".optional()";
 
-    if (v.default !== undefined) {
+    if (v.default !== undefined && this.type !== "ref" && this.type !== "reference") {
       const val = typeof v.default === "string" ? `'${v.default}'` : v.default;
       rule += `.default(${val})`;
     }
@@ -222,6 +233,57 @@ export function fieldTypeToMongoose(type) {
   return map[type] || "String";
 }
 
+const IDENT = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+const PASCAL = /^[A-Z][a-zA-Z0-9]*$/;
+
+/**
+ * Parse `--relations` for virtual hasMany associations (Mongoose virtual populate).
+ *
+ * Format (repeat with `;`): `virtualField:hasMany:TargetModel:foreignKeyInChild`
+ * Example: `orders:hasMany:Order:customerId` — Customer.orders → Order docs where `customerId` === this._id.
+ *
+ * @param {string} spec
+ * @returns {{ hasMany: Array<{ field: string, model: string, foreignKey: string }> } | null}
+ */
+export function parseRelationsSpec(spec) {
+  if (!spec || typeof spec !== "string" || !spec.trim()) return null;
+
+  const entries = spec
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const hasMany = [];
+
+  for (const entry of entries) {
+    const parts = entry.split(":").map((p) => p.trim());
+    if (parts.length !== 4) {
+      throw new Error(
+        `Invalid relation "${entry}". Use: virtualField:hasMany:TargetModel:foreignKey (4 parts). Example: orders:hasMany:Order:customerId`,
+      );
+    }
+    const [field, kind, model, foreignKey] = parts;
+    if (kind !== "hasMany") {
+      throw new Error(
+        `Invalid relation "${entry}". Kind must be hasMany (got "${kind}").`,
+      );
+    }
+    if (!IDENT.test(field)) {
+      throw new Error(`Invalid virtual field name "${field}" in "${entry}".`);
+    }
+    if (!PASCAL.test(model)) {
+      throw new Error(
+        `Invalid model "${model}" in "${entry}" — use PascalCase (e.g. Order).`,
+      );
+    }
+    if (!IDENT.test(foreignKey)) {
+      throw new Error(`Invalid foreign key "${foreignKey}" in "${entry}".`);
+    }
+    hasMany.push({ field, model, foreignKey });
+  }
+
+  return { hasMany };
+}
+
 /**
  * parseFieldSpec — parses a compact string representation of a field
  */
@@ -232,9 +294,6 @@ export function parseFieldSpec(spec) {
     /^([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:\s*([a-zA-Z]+)(?:\[(.*?)\])?(?:[:|](.*))?$/,
   );
   if (!match) {
-    console.warn(
-      `[WARN] Could not parse field spec: "${spec}". Expected format: name:type[options]`,
-    );
     return null;
   }
 

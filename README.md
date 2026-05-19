@@ -39,29 +39,29 @@ not an engine change.
 
 ## Commands
 
-| Command                                         | What it does                                                           |
-| ----------------------------------------------- | ---------------------------------------------------------------------- |
-| `loom new [name]`                               | Create a new project from the starter template                         |
-| `loom generate resource <Name>`                 | **Unified, engine-backed generator** — full-stack CRUD resource        |
-| `loom generate resource <Name> --recipe module` | Backend-only module                                                    |
-| `loom generate resource <Name> --recipe page`   | Frontend page wired to an existing resource                            |
-| `loom generate theme` / `loom generate deploy`  | Import a shadcn theme / emit deploy configs                            |
-| `loom check`                                    | Verify project health — blueprint validity, anchor integrity, env file |
-| `loom env [--sync]`                             | Diff `.env` against `.env.example`; `--sync` appends missing keys      |
-| `loom rename <name>`                            | Rebrand the CLI itself (bin name, help text, output)                   |
-| `loom cleanup [preset]`                         | De-brand a project — `minimal` \| `production` (full) \| `template`    |
-| `loom customize`                                | Theme / layout / brand / data-display                                  |
-| `loom wizard`                                   | Interactive guided setup                                               |
-| `loom doctor`                                   | Environment + project health check                                     |
-| `loom rollback`                                 | Undo the last generation                                               |
-| `loom finalize`                                 | Lint + test + build for production                                     |
-| `loom preset [name]`                            | Apply a predefined preset                                              |
-| `loom remove <type> <name>`                     | Remove a generated resource and its references                         |
+| Command                                | What it does                                                          |
+| -------------------------------------- | --------------------------------------------------------------------- |
+| `loom init [name]` / `loom new [name]` | Create a new project from the starter template                        |
+| `loom generate resource <Name>`        | Unified, engine-backed generator for full-stack CRUD                  |
+| `loom generate module <Name>`          | Backend-only module generation                                        |
+| `loom generate page <Name>`            | Frontend page generation with route and nav entry                     |
+| `loom generate theme`                  | Import a shadcn theme                                                 |
+| `loom generate deploy`                 | Generate deployment configuration for Docker, Vercel, Railway         |
+| `loom check`                           | Verify project health: blueprint validity, anchor integrity, env file |
+| `loom env [--sync]`                    | Compare `.env` to `.env.example`; `--sync` appends missing keys       |
+| `loom rename <name>`                   | Rebrand the CLI itself (bin name, help text, output)                  |
+| `loom cleanup [preset]`                | Clean or de-brand the project (`minimal`, `production`, `template`)   |
+| `loom customize`                       | Theme, layout, brand, data-display customization                      |
+| `loom wizard`                          | Interactive guided project setup                                      |
+| `loom doctor`                          | Environment and project health check                                  |
+| `loom rollback`                        | Undo the last generation action                                       |
+| `loom finalize`                        | Lint, test, and build for production                                  |
+| `loom preset [name]`                   | Apply a predefined configuration preset                               |
+| `loom remove <type> <name>`            | Remove generated modules or pages                                     |
 
-> `generate module`, `generate page`, and `make:resource` still work but are
-> **superseded** by `generate resource` — they print a deprecation notice.
+> `generate module`, `generate page`, and `make:resource` still work but are **superseded** by `generate resource`.
 
-`loom init` is kept as an alias for `loom new`.
+`loom init` remains available as an alias to `loom new`.
 
 ## Global flags
 
@@ -90,6 +90,17 @@ loom generate resource Invoice --fields "amount:number" --arch lightweight
 loom generate resource Ticket --fields "subject:string" --dry-run
 ```
 
+Additional `loom generate resource` options:
+
+- `--recipe resource|module|page` — choose full-stack, backend-only, or frontend-only generation
+- `--arch lightweight|moderate|advanced` — control backend architecture complexity
+- `--form-mode page|modal|sidepanel|inline` — choose how the form is mounted in the UI
+- `--with-tests` — generate tests for the resource
+- `--no-frontend` — skip frontend generation
+- `--interactive` — prompt for any missing resource details
+- `--file <path>` — load a resource definition from a file
+- `--relations <spec>` — virtual `hasMany` populate (see below)
+
 The engine creates the requested files **and links them**: mounts the route in
 `backend/src/routes/index.js`, adds the lazy import + route to
 `AppRouter.jsx`, and appends the nav entry to `app-preset.js`. Injection is
@@ -113,8 +124,14 @@ thin page shells.
 
 `--fields "name:type:rule|rule;name2:type2"` — e.g.
 `"email:email:required|unique;age:number:min=0;bio:text"`. Types: `string`,
-`text`, `number`, `boolean`, `date`, `email`, `password`, `ref`, `select`,
-`image`, and more. Definitions can also come from a file: `--file resource.js`.
+`text`, `number`, `boolean`, `date`, `email`, `password`, `ref` (ObjectId to
+another model, e.g. `categoryId:ref[Category]:required`), `select`, `image`, and
+more. Definitions can also come from a file: `--file resource.js`.
+
+**Relations:** `--relations "orders:hasMany:Order:customerId"` adds a Mongoose
+virtual so this resource’s `orders` resolves to `Order` documents whose
+`customerId` equals this document’s `_id`. Repeat segments with `;`. Same
+shape can live under `relations.hasMany` in a `--file` definition.
 
 Inputs are schema-validated before generation runs — a bad field type, a
 non-PascalCase name, or duplicate fields fail fast with a clear message.
@@ -203,7 +220,8 @@ pnpm test:smoke    # contract smoke test for the MERN template
 ```
 
 See [`DEVELOPER.md`](./DEVELOPER.md) for engine internals, [`API.md`](./API.md)
-for the programmatic API, and [`SPLIT.md`](./SPLIT.md) for the planned
+for the programmatic API, [`ROADMAP.md`](./ROADMAP.md) for upcoming features,
+and [`SPLIT.md`](./SPLIT.md) for the planned
 `stackloom` / `stackloom-templates` repo split.
 
 ## License

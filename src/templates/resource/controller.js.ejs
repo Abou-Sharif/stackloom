@@ -1,4 +1,5 @@
 <% if (options.architecture === 'lightweight') { -%>
+<% const _refPopulate = resource.fields.filter(function(f) { return f.type === 'ref' || f.type === 'reference'; }); -%>
 // Lightweight architecture — CRUD logic lives inline here; no separate service layer.
 const <%= resource.pascalName %> = require('../models/<%= resource.name %>');
 const ApiResponse = require('../../../utils/ApiResponse');
@@ -41,7 +42,8 @@ const list = async (req, res, next) => {
 // ── Get One ──────────────────────────────────────────────────────────────────
 const getOne = async (req, res, next) => {
   try {
-    const result = await <%= resource.pascalName %>.findById(req.params.id);
+    const result = await <%= resource.pascalName %>.findById(req.params.id)<% if (_refPopulate.length) { %>
+      .populate(<%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>)<% } %>;
     if (!result) throw new ApiError(404, '<%= resource.pascalName %> not found');
     return res.status(200).json(new ApiResponse(200, 'Fetched', { data: result }).body);
   } catch (err) {
@@ -79,6 +81,7 @@ const remove = async (req, res, next) => {
 
 module.exports = { create, list, getOne, update, remove };
 <% } else { -%>
+<% const _refPopulate = resource.fields.filter(function(f) { return f.type === 'ref' || f.type === 'reference'; }); -%>
 // Layered architecture — the controller is thin; domain logic lives in the service.
 const service = require('../services/<%= resource.name %>.service');
 const ApiResponse = require('../../../utils/ApiResponse');

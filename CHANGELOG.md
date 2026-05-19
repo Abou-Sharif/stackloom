@@ -2,6 +2,24 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.0.12] - 2026-05-19
+
+### Added
+
+- Updated `README.md`, `CLI_USAGE.md`, `DEVELOPER.md`, and `CONTRIBUTING.md` with accurate CLI usage, option references, and local development workflows.
+- Added explicit `loom init`, `loom wizard`, and `loom generate resource` usage documentation, including available option values and command behaviors.
+
+### Changed
+
+- Aligned developer and contributor guidance with the current repository layout and command registration flow.
+- Documented `pnpm link --global` local CLI testing and the actual `loom` command set.
+
+### Fixed
+
+- Corrected stale documentation references to old package layout conventions.
+- Fixed `PageWrapper` in the MERN template so generated pages can pass `title`, `subtitle`, and `actions` props.
+- Fixed MERN template `FormField` so `Controller` is imported correctly and generated forms no longer crash at runtime.
+
 ## [2.1.0] - 2026-05-16
 
 ### Added

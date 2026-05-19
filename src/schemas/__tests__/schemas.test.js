@@ -39,10 +39,37 @@ describe("validateResourceDefinition", () => {
     expect(r.issues.some((i) => i.includes("duplicate"))).toBe(true);
   });
 
-  it("rejects an invalid field identifier", () => {
-    const r = validateResourceDefinition({ name: "Product", fields: [{ name: "2bad" }] });
+  it("rejects ref field without target model", () => {
+    const r = validateResourceDefinition({
+      name: "Order",
+      fields: [{ name: "customerId", type: "ref", special: {} }],
+    });
     expect(r.success).toBe(false);
-    expect(r.issues.some((i) => i.includes("identifier"))).toBe(true);
+    expect(r.issues.some((i) => i.includes("ref[") || i.includes("ref/reference"))).toBe(true);
+  });
+
+  it("accepts ref field with model in special", () => {
+    const r = validateResourceDefinition({
+      name: "Order",
+      fields: [{ name: "customerId", type: "ref", special: { model: "Customer" } }],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("validates relations.hasMany entries", () => {
+    const bad = validateResourceDefinition({
+      name: "Customer",
+      fields: [{ name: "name", type: "string" }],
+      relations: { hasMany: [{ field: "orders", model: "order", foreignKey: "x" }] },
+    });
+    expect(bad.success).toBe(false);
+
+    const good = validateResourceDefinition({
+      name: "Customer",
+      fields: [{ name: "name", type: "string" }],
+      relations: { hasMany: [{ field: "orders", model: "Order", foreignKey: "customerId" }] },
+    });
+    expect(good.success).toBe(true);
   });
 });
 
@@ -63,5 +90,17 @@ describe("validateGenerateOptions", () => {
     const r = validateGenerateOptions({ fields: "a:str", file: "x.js" });
     expect(r.success).toBe(false);
     expect(r.issues.some((i) => i.includes("mutually exclusive"))).toBe(true);
+  });
+
+  it("rejects invalid --relations string", () => {
+    const r = validateGenerateOptions({ relations: "only:three:parts" });
+    expect(r.success).toBe(false);
+    expect(r.issues.some((i) => i.includes("--relations"))).toBe(true);
+  });
+
+  it("accepts valid --relations", () => {
+    expect(validateGenerateOptions({ relations: "orders:hasMany:Order:customerId" }).success).toBe(
+      true,
+    );
   });
 });

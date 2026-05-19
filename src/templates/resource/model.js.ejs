@@ -34,17 +34,17 @@ const <%= resource.pascalName %>Schema = new mongoose.Schema(
 <%= resource.pascalName %>Schema.plugin(require('mongoose-delete'), { deletedAt: true });
 <% } %>
 
- <% if (resource.relations && resource.relations.hasMany && resource.relations.hasMany.length > 0) { %>
- // Virtual populate for hasMany relations
- <% resource.relations.hasMany.forEach(function(rel) { %>
- <%= resource.pascalName %>Schema.virtual('<%- rel.field %>', {
-   ref: '<%- rel.model %>',
-   localField: '_id',
-   foreignField: '<%- rel.foreignKey || (rel.field + 'Id') %>',
-   justOne: false
- });
- <% }); %>
- <% } %>
+<% if (resource.relations && resource.relations.hasMany && resource.relations.hasMany.length > 0) { -%>
+// Virtual populate — hasMany (child documents reference this doc via foreignField)
+<% resource.relations.hasMany.forEach(function(rel) { -%>
+<%= resource.pascalName %>Schema.virtual('<%- rel.field %>', {
+  ref: '<%- rel.model %>',
+  localField: '_id',
+  foreignField: '<%- rel.foreignKey %>',
+  justOne: false,
+});
+<% }); -%>
+<% } -%>
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ✎ CUSTOM CODE ZONE — YOUR CODE HERE

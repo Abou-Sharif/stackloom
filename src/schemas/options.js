@@ -1,3 +1,5 @@
+import { parseRelationsSpec } from "../core/resource-definition.js";
+
 /**
  * Command-option validation — rejects bad CLI flags before any generation runs.
  *
@@ -32,6 +34,14 @@ export function validateGenerateOptions(options = {}) {
 
   if (options.fields && options.file) {
     issues.push("--fields and --file are mutually exclusive");
+  }
+
+  if (typeof options.relations === "string" && options.relations.trim()) {
+    try {
+      parseRelationsSpec(options.relations.trim());
+    } catch (e) {
+      issues.push(`--relations: ${e.message}`);
+    }
   }
 
   return { success: issues.length === 0, issues };

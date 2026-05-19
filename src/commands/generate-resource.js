@@ -12,6 +12,7 @@ import path from "node:path";
 import {
   ResourceDefinition,
   parseFieldSpec,
+  parseRelationsSpec,
 } from "../core/resource-definition.js";
 import { TemplateLoader } from "../core/template-loader.js";
 import { blueprintLoader } from "../blueprint/index.js";
@@ -37,6 +38,7 @@ const FIELD_TYPE_CHOICES = [
   { name: "Color", value: "color" },
   { name: "File / upload path", value: "file" },
   { name: "Range / slider", value: "range" },
+  { name: "Reference → other document (ObjectId)", value: "ref" },
 ];
 
 const DEFAULT_PAGE_ICONS = [
@@ -65,14 +67,34 @@ async function resolveResource(name, options) {
   if (options.file) {
     const mod = await import(path.resolve(process.cwd(), options.file));
     raw = mod.default || mod;
+    if (raw == null || typeof raw !== "object") {
+      throw new Error("Resource module must export a default object");
+    }
+    raw = { ...raw };
   } else {
-    const fields = options.fields
-      ? options.fields
-          .split(";")
-          .map((spec) => parseFieldSpec(spec.trim()))
-          .filter(Boolean)
+    const specs = options.fields
+      ? options.fields.split(";").map((s) => s.trim()).filter(Boolean)
       : [];
+    const fields = [];
+    for (const spec of specs) {
+      const f = parseFieldSpec(spec);
+      if (!f) {
+        throw new Error(
+          `Invalid field spec "${spec}". Use name:type[opts]:rules (see CLI_USAGE.md).`,
+        );
+      }
+      fields.push(f);
+    }
     raw = { name: NAMING.pascal(name), fields };
+  }
+
+  if (options.relations && String(options.relations).trim()) {
+    const parsedRel = parseRelationsSpec(String(options.relations).trim());
+    raw.relations = raw.relations || {};
+    const existing = Array.isArray(raw.relations.hasMany)
+      ? raw.relations.hasMany
+      : [];
+    raw.relations.hasMany = [...existing, ...parsedRel.hasMany];
   }
 
   // Schema-validate before construction — typed errors, not a thrown stack trace.
@@ -94,6 +116,12 @@ function serializeFieldSpec(field) {
   if (field.min != null) rules.push(`min=${field.min}`);
   if (field.max != null) rules.push(`max=${field.max}`);
   if (field.pattern) rules.push(`pattern=${field.pattern}`);
+  const isRef = field.type === "ref" || field.type === "reference";
+  const refModel = field.special?.model;
+  if (isRef && refModel) {
+    const base = `${field.name}:ref[${refModel}]`;
+    return rules.length ? `${base}:${rules.join("|")}` : base;
+  }
   return rules.length
     ? `${field.name}:${field.type}:${rules.join("|")}`
     : `${field.name}:${field.type}`;
@@ -117,6 +145,16 @@ async function askResourceFields() {
         message: "Field type:",
         choices: FIELD_TYPE_CHOICES,
         default: "string",
+      },
+      {
+        type: "input",
+        name: "refModel",
+        message: "Referenced Mongoose model (PascalCase, e.g. Category):",
+        when: (a) => a.type === "ref",
+        validate: (v) =>
+          /^[A-Z][a-zA-Z0-9]*$/.test((v || "").trim()) ||
+          "Use PascalCase, matching the other resource's model name",
+        filter: (v) => (v || "").trim(),
       },
       {
         type: "confirm",
@@ -189,6 +227,10 @@ async function askResourceFields() {
       min: answers.min ? Number(answers.min) : undefined,
       max: answers.max ? Number(answers.max) : undefined,
       pattern: answers.pattern || undefined,
+      special:
+        answers.type === "ref" && answers.refModel
+          ? { model: answers.refModel }
+          : {},
     });
 
     if (!answers.more) break;
@@ -254,6 +296,64 @@ async function askPageMetadata(name, options) {
   };
 }
 
+/** Interactive: build `--relations`-style hasMany virtual populate specs. */
+async function askHasManyVirtualRelations() {
+  const { want } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "want",
+      message:
+        "Add hasMany virtual relations (child docs that reference this resource via a foreign key)?",
+      default: false,
+    },
+  ]);
+  if (!want) return "";
+
+  const chunks = [];
+  let more = true;
+  while (more) {
+    const ans = await inquirer.prompt([
+      {
+        type: "input",
+        name: "field",
+        message: "Virtual property name on this model (e.g. orders):",
+        validate: (v) =>
+          /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) ||
+          "Must be a valid JavaScript identifier",
+        filter: (v) => (v || "").trim(),
+      },
+      {
+        type: "input",
+        name: "model",
+        message: "Child Mongoose model name (PascalCase, e.g. Order):",
+        validate: (v) =>
+          /^[A-Z][a-zA-Z0-9]*$/.test((v || "").trim()) ||
+          "Use PascalCase, matching the child model's name",
+        filter: (v) => (v || "").trim(),
+      },
+      {
+        type: "input",
+        name: "foreignKey",
+        message:
+          "On the child document, which field stores THIS resource's id? (e.g. customerId)",
+        validate: (v) =>
+          /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) ||
+          "Must be a valid identifier",
+        filter: (v) => (v || "").trim(),
+      },
+      {
+        type: "confirm",
+        name: "more",
+        message: "Add another hasMany relation?",
+        default: false,
+      },
+    ]);
+    chunks.push(`${ans.field}:hasMany:${ans.model}:${ans.foreignKey}`);
+    more = ans.more;
+  }
+  return chunks.join(";");
+}
+
 async function promptGenerateResourceOptions(type, name, options) {
   const interactiveOptions = { ...options };
 
@@ -284,6 +384,15 @@ async function promptGenerateResourceOptions(type, name, options) {
       const fields = await askResourceFields();
       interactiveOptions.fields = fields.map(serializeFieldSpec).join(";");
     }
+  }
+
+  if (
+    type === "resource" &&
+    !String(interactiveOptions.relations || "").trim() &&
+    !interactiveOptions.file
+  ) {
+    const relSpec = await askHasManyVirtualRelations();
+    if (relSpec) interactiveOptions.relations = relSpec;
   }
 
   if (type === "page") {
@@ -415,6 +524,10 @@ export default async function generateResource(type, name, options = {}) {
     });
 
     const { files, dryRun } = ctx.result;
+    const creates = files.filter((f) => f.action === "create").length;
+    const updates = files.filter((f) => f.action === "update").length;
+    reporter.step(`Change set: ${creates} new, ${updates} updated`);
+
     for (const file of files) {
       reporter.event("file", { action: file.action, path: file.relPath });
       reporter.info(`${file.action === "create" ? "+" : "~"} ${file.relPath}`);

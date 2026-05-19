@@ -132,6 +132,10 @@ generateCmd
   .option("--no-frontend", "Skip frontend generation")
   .option("--interactive", "Prompt interactively for missing resource details")
   .option("--dry-run", "Preview the file plan without writing")
+  .option(
+    "--relations <spec>",
+    "Virtual hasMany: virtualField:hasMany:ChildModel:foreignKeyOnChild (repeat with ;)",
+  )
   .action((name, options) =>
     generateResource(options.recipe || "resource", name, {
       ...program.opts(),

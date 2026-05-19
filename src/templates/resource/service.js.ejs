@@ -1,3 +1,4 @@
+<% const _refPopulate = resource.fields.filter(function(f) { return f.type === 'ref' || f.type === 'reference'; }); -%>
 const <%= resource.pascalName %>Model = require('../models/<%= resource.name %>');
 const ApiError = require('../../../utils/ApiError');
 <% if (options.architecture === 'advanced') { -%>
@@ -55,7 +56,13 @@ const getAll<%= resource.pascalName %>s = async (filters = {}) => {
 
 // ── Get One ──────────────────────────────────────────────────────────────────
 const get<%= resource.pascalName %>ById = async (id) => {
+<% if (_refPopulate.length) { -%>
+  const doc = await <%= resource.pascalName %>Model.findById(id)
+    .populate(<%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>)
+    .exec();
+<% } else { -%>
   const doc = await <%= resource.pascalName %>Model.findById(id);
+<% } -%>
   if (!doc) throw new ApiError(404, '<%= resource.name %> not found');
   return doc;
 };
