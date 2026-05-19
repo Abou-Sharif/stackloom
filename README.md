@@ -43,11 +43,13 @@ not an engine change.
 | -------------------------------------- | --------------------------------------------------------------------- |
 | `loom init [name]` / `loom new [name]` | Create a new project from the starter template                        |
 | `loom generate resource <Name>`        | Unified, engine-backed generator for full-stack CRUD                  |
+| `loom resource sync <Name>`            | Amend an existing resource (alias for `generate resource --amend`)    |
 | `loom generate module <Name>`          | Backend-only module generation                                        |
 | `loom generate page <Name>`            | Frontend page generation with route and nav entry                     |
 | `loom generate theme`                  | Import a shadcn theme                                                 |
 | `loom generate deploy`                 | Generate deployment configuration for Docker, Vercel, Railway         |
 | `loom check`                           | Verify project health: blueprint validity, anchor integrity, env file |
+| `loom upgrade`                         | Read-only: CLI vs blueprint + `.loom/metadata.json` compatibility      |
 | `loom env [--sync]`                    | Compare `.env` to `.env.example`; `--sync` appends missing keys       |
 | `loom rename <name>`                   | Rebrand the CLI itself (bin name, help text, output)                  |
 | `loom cleanup [preset]`                | Clean or de-brand the project (`minimal`, `production`, `template`)   |
@@ -72,6 +74,7 @@ Every command honors:
 - `--no-color` — disable ANSI colour
 - `--debug` — diagnostic detail
 - `--yes` / `-y` — assume defaults, never prompt
+- `--brief` — less chatty human output where supported (e.g. `generate resource` skips per-file lines; events still appear in `--json`)
 
 ## Generating a resource
 
@@ -88,6 +91,9 @@ loom generate resource Invoice --fields "amount:number" --arch lightweight
 
 # Preview without writing
 loom generate resource Ticket --fields "subject:string" --dry-run
+
+# Quieter log: summary + change-set only (file list still in --json)
+loom generate resource Tag --fields "name:string:required" --brief
 ```
 
 Additional `loom generate resource` options:
@@ -100,6 +106,9 @@ Additional `loom generate resource` options:
 - `--interactive` — prompt for any missing resource details
 - `--file <path>` — load a resource definition from a file
 - `--relations <spec>` — virtual `hasMany` populate (see below)
+- `--amend` — update an existing resource (see **Amending** below)
+- `--remove-fields <list>` — on amend, drop fields by name (comma-separated)
+- `--force` — on amend, overwrite files that lack markers / custom zone
 
 The engine creates the requested files **and links them**: mounts the route in
 `backend/src/routes/index.js`, adds the lazy import + route to
@@ -135,6 +144,37 @@ shape can live under `relations.hasMany` in a `--file` definition.
 
 Inputs are schema-validated before generation runs — a bad field type, a
 non-PascalCase name, or duplicate fields fail fast with a clear message.
+
+### Amending a resource (`--amend` / `loom resource sync`)
+
+After the first `loom generate resource`, the schema is saved under
+`.loom/resources/<kebab>.json` and the run is recorded in `.loom/state.json`.
+
+```bash
+# Add or update fields (merged by name; fields you omit are kept)
+loom generate resource Product --amend --fields "sku:string:required"
+
+# Alias
+loom resource sync Product --fields "sku:string:required"
+
+# Remove fields
+loom generate resource Product --amend --remove-fields "legacyCode"
+
+# Full definition from a file
+loom generate resource Product --amend --file ./product.resource.js
+```
+
+**Merge rules:**
+
+- **Model** (`models/*.js`): code above `// ✎ CUSTOM CODE ZONE` is regenerated; your code below that marker is kept.
+- **Other files** with `AUTO-GENERATED` markers: only the marked block is replaced.
+- **Unmarked files**: amend fails unless you pass `--force` (full overwrite).
+
+Use the same `--arch`, `--form-mode`, and `--no-frontend` as the original generate.
+
+**Safety:** amend refuses to run if it finds manual edits **outside** the custom zone or `AUTO-GENERATED` blocks (e.g. extra code at the top of a file). Use `--force` to overwrite anyway.
+
+**Interactive amend:** `loom resource sync Product --interactive` walks through add/remove fields and relations step by step.
 
 ## Customising templates
 

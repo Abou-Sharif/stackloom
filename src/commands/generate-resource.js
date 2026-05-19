@@ -14,6 +14,12 @@ import {
   parseFieldSpec,
   parseRelationsSpec,
 } from "../core/resource-definition.js";
+import {
+  mergeFieldLists,
+  removeFieldsFromList,
+  serializeResourceSnapshot,
+} from "../core/amend-merge.js";
+import { StateTracker } from "../core/state-tracker.js";
 import { TemplateLoader } from "../core/template-loader.js";
 import { blueprintLoader } from "../blueprint/index.js";
 import { recipeLoader } from "../recipes/index.js";
@@ -23,6 +29,7 @@ import {
   validateGenerateOptions,
   validateResourceDefinition,
 } from "../schemas/index.js";
+import { existsSync } from "node:fs";
 
 const FIELD_TYPE_CHOICES = [
   { name: "Text (single line)", value: "string" },
@@ -62,10 +69,50 @@ const NAMING = {
 };
 
 /** Build a validated ResourceDefinition from --fields / --file / a bare name. */
-async function resolveResource(name, options) {
+async function resolveResource(name, options, projectRoot) {
+  const pascalName = NAMING.pascal(name);
+  const tracker = new StateTracker(projectRoot);
   let raw;
-  if (options.file) {
-    const mod = await import(path.resolve(process.cwd(), options.file));
+
+  if (options.amend && options.file) {
+    const mod = await import(path.resolve(projectRoot, options.file));
+    raw = mod.default || mod;
+    if (raw == null || typeof raw !== "object") {
+      throw new Error("Resource module must export a default object");
+    }
+    raw = { ...raw, name: raw.name || pascalName };
+  } else if (options.amend) {
+    const stored = await tracker.loadResourceDefinition(pascalName);
+    const hasFields = Boolean(options.fields && String(options.fields).trim());
+    const removeNames = parseRemoveFieldsList(options.removeFields);
+
+    if (!stored && !hasFields && removeNames.length === 0) {
+      throw new Error(
+        `No stored definition for ${pascalName} (.loom/resources/). Run generate first, or pass --fields / --file.`,
+      );
+    }
+
+    raw = stored ? { ...stored, name: stored.name || pascalName } : { name: pascalName, fields: [] };
+
+    if (hasFields) {
+      const incoming = [];
+      for (const spec of String(options.fields).split(";").map((s) => s.trim()).filter(Boolean)) {
+        const f = parseFieldSpec(spec);
+        if (!f) {
+          throw new Error(
+            `Invalid field spec "${spec}". Use name:type[opts]:rules (see CLI_USAGE.md).`,
+          );
+        }
+        incoming.push(f);
+      }
+      raw.fields = mergeFieldLists(raw.fields || [], incoming);
+    }
+
+    if (removeNames.length) {
+      raw.fields = removeFieldsFromList(raw.fields || [], removeNames);
+    }
+  } else if (options.file) {
+    const mod = await import(path.resolve(projectRoot, options.file));
     raw = mod.default || mod;
     if (raw == null || typeof raw !== "object") {
       throw new Error("Resource module must export a default object");
@@ -85,7 +132,7 @@ async function resolveResource(name, options) {
       }
       fields.push(f);
     }
-    raw = { name: NAMING.pascal(name), fields };
+    raw = { name: pascalName, fields };
   }
 
   if (options.relations && String(options.relations).trim()) {
@@ -97,7 +144,6 @@ async function resolveResource(name, options) {
     raw.relations.hasMany = [...existing, ...parsedRel.hasMany];
   }
 
-  // Schema-validate before construction — typed errors, not a thrown stack trace.
   const validated = validateResourceDefinition(raw);
   if (!validated.success) {
     throw new Error(
@@ -105,6 +151,30 @@ async function resolveResource(name, options) {
     );
   }
   return new ResourceDefinition(validated.data);
+}
+
+function parseRemoveFieldsList(spec) {
+  if (!spec || typeof spec !== "string") return [];
+  return spec
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Ensure the backend model exists before `--amend`. */
+function assertAmendTargetExists(projectRoot, blueprint, resource) {
+  const modulesRoot = blueprint.resolvePath("backend.modules", projectRoot);
+  const modelAbs = path.join(
+    modulesRoot,
+    resource.kebabName,
+    "models",
+    `${resource.name}.js`,
+  );
+  if (!existsSync(modelAbs)) {
+    throw new Error(
+      `Resource ${resource.name} was not found at ${path.relative(projectRoot, modelAbs)}. Generate it first (without --amend).`,
+    );
+  }
 }
 
 function serializeFieldSpec(field) {
@@ -354,6 +424,92 @@ async function askHasManyVirtualRelations() {
   return chunks.join(";");
 }
 
+/** Interactive wizard for `--amend` / `loom resource sync`. */
+async function promptAmendResource(name, options) {
+  const projectRoot = options.projectRoot || process.cwd();
+  const pascalName = NAMING.pascal(name);
+  const tracker = new StateTracker(projectRoot);
+  const stored = await tracker.loadResourceDefinition(pascalName);
+
+  if (!stored?.fields?.length && !stored) {
+    throw new Error(
+      `No stored definition for ${pascalName} (.loom/resources/). Generate the resource first.`,
+    );
+  }
+
+  const fieldList = stored.fields || [];
+  const addedSpecs = [];
+  const removedNames = new Set();
+  let relationsSpec = String(options.relations || "").trim();
+
+  let done = false;
+  while (!done) {
+    const summary =
+      fieldList.length === 0
+        ? "(no fields yet)"
+        : fieldList
+            .filter((f) => !removedNames.has(f.name))
+            .map((f) => `${f.name}:${f.type}`)
+            .join(", ");
+
+    const { action } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "action",
+        message: `Amend ${pascalName} — current fields: ${summary}`,
+        choices: [
+          { name: "Add or update field(s)", value: "add" },
+          { name: "Remove field(s)", value: "remove" },
+          { name: "Add hasMany virtual relation(s)", value: "relations" },
+          { name: "Apply changes", value: "done" },
+        ],
+      },
+    ]);
+
+    if (action === "done") {
+      done = true;
+      break;
+    }
+
+    if (action === "add") {
+      const fields = await askResourceFields();
+      addedSpecs.push(...fields.map(serializeFieldSpec));
+    }
+
+    if (action === "remove") {
+      const remaining = fieldList.filter((f) => !removedNames.has(f.name));
+      if (remaining.length === 0) {
+        continue;
+      }
+      const { pick } = await inquirer.prompt([
+        {
+          type: "checkbox",
+          name: "pick",
+          message: "Select fields to remove:",
+          choices: remaining.map((f) => ({
+            name: `${f.name} (${f.type})`,
+            value: f.name,
+          })),
+        },
+      ]);
+      pick.forEach((n) => removedNames.add(n));
+    }
+
+    if (action === "relations") {
+      const rel = await askHasManyVirtualRelations();
+      if (rel) {
+        relationsSpec = relationsSpec ? `${relationsSpec};${rel}` : rel;
+      }
+    }
+  }
+
+  const out = { ...options, name, amend: true };
+  if (addedSpecs.length) out.fields = addedSpecs.join(";");
+  if (removedNames.size) out.removeFields = [...removedNames].join(",");
+  if (relationsSpec) out.relations = relationsSpec;
+  return out;
+}
+
 async function promptGenerateResourceOptions(type, name, options) {
   const interactiveOptions = { ...options };
 
@@ -371,7 +527,18 @@ async function promptGenerateResourceOptions(type, name, options) {
     name = resourceName;
   }
 
-  if (!interactiveOptions.file && !interactiveOptions.fields) {
+  const amendInteractive =
+    interactiveOptions.amend &&
+    interactiveOptions.interactive &&
+    !interactiveOptions.file &&
+    !interactiveOptions.fields &&
+    !interactiveOptions.removeFields;
+
+  if (amendInteractive) {
+    return promptAmendResource(name, interactiveOptions);
+  }
+
+  if (!interactiveOptions.amend && !interactiveOptions.file && !interactiveOptions.fields) {
     const { addFields } = await inquirer.prompt([
       {
         type: "confirm",
@@ -471,8 +638,14 @@ export default async function generateResource(type, name, options = {}) {
       );
     }
 
-    const resource = await resolveResource(name, executionOptions);
+    const resource = await resolveResource(name, executionOptions, projectRoot);
     const blueprint = await blueprintLoader.load(projectRoot);
+
+    if (executionOptions.amend) {
+      assertAmendTargetExists(projectRoot, blueprint, resource);
+      reporter.step(`Amending ${resource.name} (preserving custom zones where marked)`);
+    }
+
     const recipe = await recipeLoader.load(
       executionOptions.recipe || type,
       blueprint,
@@ -512,7 +685,12 @@ export default async function generateResource(type, name, options = {}) {
     const renderer = (templatePath) =>
       templates.render(templatePath, templateContext, projectRoot);
 
-    const pipeline = createGenerationPipeline({ renderer });
+    const pipeline = createGenerationPipeline({
+      renderer,
+      amend: Boolean(executionOptions.amend),
+      force: Boolean(executionOptions.force),
+      resourceName: resource.name,
+    });
     const ctx = await pipeline.run({
       projectRoot,
       recipe,
@@ -521,6 +699,7 @@ export default async function generateResource(type, name, options = {}) {
       vars,
       templateContext,
       dryRun: Boolean(executionOptions.dryRun),
+      amend: Boolean(executionOptions.amend),
     });
 
     const { files, dryRun } = ctx.result;
@@ -528,28 +707,57 @@ export default async function generateResource(type, name, options = {}) {
     const updates = files.filter((f) => f.action === "update").length;
     reporter.step(`Change set: ${creates} new, ${updates} updated`);
 
-    for (const file of files) {
-      reporter.event("file", { action: file.action, path: file.relPath });
-      reporter.info(`${file.action === "create" ? "+" : "~"} ${file.relPath}`);
+    if (!executionOptions.brief) {
+      for (const file of files) {
+        reporter.event("file", { action: file.action, path: file.relPath });
+        reporter.info(`${file.action === "create" ? "+" : "~"} ${file.relPath}`);
+      }
+    } else {
+      for (const file of files) {
+        reporter.event("file", { action: file.action, path: file.relPath });
+      }
     }
+
     reporter.result({
       recipe: recipe.name,
       resource: resource.name,
+      amend: Boolean(executionOptions.amend),
       dryRun,
       files,
       injections: ctx.injections || [],
     });
+
+    if (!dryRun) {
+      const tracker = new StateTracker(projectRoot);
+      const snapshot = serializeResourceSnapshot(resource);
+      await tracker.saveResourceDefinition(resource.name, snapshot);
+      await tracker.recordEvent({
+        action: executionOptions.amend ? "amend" : "generate",
+        resource: resource.name,
+        definition: snapshot,
+        files: files.map((f) => ({
+          path: f.relPath,
+          action: String(f.action).toUpperCase(),
+        })),
+      });
+    }
+
     reporter.success(
       dryRun
         ? `Dry run — ${files.length} file(s) would change`
-        : `Generated ${resource.name} — ${files.length} file(s)`,
+        : executionOptions.amend
+          ? `Amended ${resource.name} — ${files.length} file(s) updated`
+          : `Generated ${resource.name} — ${files.length} file(s)`,
     );
   } catch (err) {
     reporter.error(err.message);
     reporter.result({ error: err.message });
     reporter.flush();
     process.exitCode =
-      err.name === "BlueprintLoadError" || err.name === "RecipeLoadError"
+      err.name === "BlueprintLoadError" ||
+      err.name === "RecipeLoadError" ||
+      err.name === "AmendMergeError" ||
+      err.name === "AmendSafetyError"
         ? 1
         : 2;
     return;

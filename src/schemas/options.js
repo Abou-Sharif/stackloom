@@ -44,5 +44,9 @@ export function validateGenerateOptions(options = {}) {
     }
   }
 
+  if (options.removeFields && !options.amend) {
+    issues.push("--remove-fields requires --amend (or loom resource sync)");
+  }
+
   return { success: issues.length === 0, issues };
 }

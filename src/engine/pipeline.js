@@ -11,9 +11,11 @@
  * render-to-temp, validate-everything, then atomic-commit — so a syntactically
  * broken file is caught before anything touches the project.
  */
+import path from "node:path";
 import { FileTransaction, realFs } from "./transaction.js";
 import { Validator } from "./validator.js";
 import { Injector } from "./injector.js";
+import { mergeAmendContent, auditAmendSafety, formatAmendSafetyError } from "../core/amend-merge.js";
 
 export class Pipeline {
   constructor(steps = []) {
@@ -87,6 +89,49 @@ export function createInjectStep({ renderer, injector }) {
   });
 }
 
+/**
+ * On `--amend`, merge staged outputs with on-disk files (custom zones / markers).
+ * Injection targets are handled in the inject step and are not merged here.
+ */
+export function createAmendMergeStep({ fs = realFs, force = false, resourceName = "" } = {}) {
+  return defineStep("amend-merge", (context) => {
+    if (!context.amend) return;
+    const { projectRoot, transaction, plan } = context;
+    const recipePaths = new Set((plan?.files ?? []).map((f) => f.out.replace(/\\/g, "/")));
+    const safetyIssues = [];
+    const pending = [];
+
+    for (const file of transaction.staged()) {
+      const rel = file.relPath.replace(/\\/g, "/");
+      if (!recipePaths.has(rel)) continue;
+
+      const abs = path.join(projectRoot, rel);
+      const existing = fs.existsSync(abs) ? fs.readFileSync(abs, "utf-8") : "";
+
+      if (existing && !force) {
+        safetyIssues.push(...auditAmendSafety(existing, file.content, rel));
+      }
+
+      pending.push({ rel, existing, incoming: file.content });
+    }
+
+    if (safetyIssues.length > 0) {
+      throw formatAmendSafetyError(safetyIssues);
+    }
+
+    for (const { rel, existing, incoming } of pending) {
+      const merged = mergeAmendContent({
+        existing,
+        incoming,
+        relPath: rel,
+        resourceName,
+        force,
+      });
+      transaction.stage(rel, merged.content);
+    }
+  });
+}
+
 /** Validate every staged file; abort the whole generation on any failure. */
 export function createValidateStep({ validator = new Validator() } = {}) {
   return defineStep("validate", (context) => {
@@ -111,7 +156,7 @@ export const commitStep = defineStep("commit", (context) => {
 
 /**
  * Compose the standard transactional generation pipeline:
- *   plan → render → inject → validate → commit
+ *   plan → render → [amend-merge] → inject → validate → commit
  * Rendering is injected so the engine never depends on a specific template
  * library. Pass `withInject: false` to skip anchor injection (e.g. recipes that
  * only emit standalone files, or tests exercising render/commit in isolation).
@@ -121,6 +166,9 @@ export const commitStep = defineStep("commit", (context) => {
  * @param {Injector} [args.injector]
  * @param {typeof realFs} [args.fs]
  * @param {boolean} [args.withInject=true]
+ * @param {boolean} [args.amend=false]
+ * @param {boolean} [args.force=false]
+ * @param {string} [args.resourceName]
  */
 export function createGenerationPipeline({
   renderer,
@@ -128,8 +176,14 @@ export function createGenerationPipeline({
   injector,
   fs = realFs,
   withInject = true,
+  amend = false,
+  force = false,
+  resourceName = "",
 } = {}) {
   const steps = [planStep, createRenderStep({ renderer, fs })];
+  if (amend) {
+    steps.push(createAmendMergeStep({ fs, force, resourceName }));
+  }
   if (withInject) {
     steps.push(createInjectStep({ renderer, injector: injector ?? new Injector({ fs }) }));
   }

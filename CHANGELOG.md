@@ -2,6 +2,27 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.3.0] - 2026-05-19
+
+### Added
+
+- **Resource relationships** — `ref[Model]` fields and `--relations` for virtual `hasMany` populate; validated in schema and reflected in generated model, controller, service, and form templates.
+- **`loom upgrade`** — read-only compatibility check (CLI vs blueprint `engine.minCliVersion`, `schemaVersion`, and `.loom/metadata.json`).
+- **`loom generate resource --amend`** and **`loom resource sync <Name>`** — update an existing resource from `.loom/resources/<kebab>.json`, merge `--fields`, `--remove-fields`, or `--file`; preserves model custom code zones and `AUTO-GENERATED` blocks.
+- **Interactive amend** — `loom resource sync <Name> --interactive` to add, remove, or extend fields and relations step by step.
+- **Amend safety audit** — blocks amend when manual edits are detected outside safe zones unless `--force` is passed.
+- Global **`--brief`** flag — quieter `generate resource` output (change-set summary without per-file lines).
+
+### Changed
+
+- **State tracker** — persists resource definitions under `.loom/resources/` and records `generate` / `amend` events in `.loom/state.json`.
+- Generation pipeline includes an **amend-merge** step for safe file updates.
+- Stricter **`--fields`** validation — invalid segments fail fast instead of being dropped silently.
+
+### Documentation
+
+- `README.md`, `CLI_USAGE.md`, and `ROADMAP.md` updated for relations, upgrade, amend, sync, brief, and safety behavior.
+
 ## [1.0.12] - 2026-05-19
 
 ### Added

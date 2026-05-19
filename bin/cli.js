@@ -36,6 +36,7 @@ import generateResource from "../src/commands/generate-resource.js";
 import check from "../src/commands/check.js";
 import env from "../src/commands/env.js";
 import rename from "../src/commands/rename.js";
+import upgrade from "../src/commands/upgrade.js";
 
 program
   .name(branding.binName)
@@ -52,6 +53,10 @@ program
   .option(
     "-y, --yes",
     "Assume defaults; never prompt (fails fast on missing input)",
+  )
+  .option(
+    "--brief",
+    "Less verbose output (e.g. hide per-file lines on generate resource)",
   );
 
 // Init: create fresh project from template (always new copy)
@@ -110,38 +115,73 @@ const generateCmd = program
   .description("Add features to existing project");
 
 // Unified, engine-backed generation — blueprint + recipe + transactional pipeline.
-generateCmd
-  .command("resource [name]")
-  .description(
-    "Generate a full-stack resource via the engine (recipe-driven, transactional, validated)",
-  )
-  .option("--fields <spec>", "Field spec: 'name:type:rules;...'")
-  .option("--file <path>", "Path to a resource definition file")
-  .option("--recipe <name>", "Recipe to run: resource|module|page", "resource")
-  .option(
-    "--arch <level>",
-    "Architecture: lightweight|moderate|advanced",
-    "moderate",
-  )
-  .option(
-    "--form-mode <mode>",
-    "Form mount mode: page|modal|sidepanel|inline",
-    "page",
-  )
-  .option("--with-tests", "Generate test files")
-  .option("--no-frontend", "Skip frontend generation")
-  .option("--interactive", "Prompt interactively for missing resource details")
-  .option("--dry-run", "Preview the file plan without writing")
-  .option(
-    "--relations <spec>",
-    "Virtual hasMany: virtualField:hasMany:ChildModel:foreignKeyOnChild (repeat with ;)",
-  )
-  .action((name, options) =>
-    generateResource(options.recipe || "resource", name, {
-      ...program.opts(),
-      ...options,
-    }),
-  );
+const resourceOptions = (cmd) =>
+  cmd
+    .option("--fields <spec>", "Field spec: 'name:type:rules;...'")
+    .option("--file <path>", "Path to a resource definition file")
+    .option("--recipe <name>", "Recipe to run: resource|module|page", "resource")
+    .option(
+      "--arch <level>",
+      "Architecture: lightweight|moderate|advanced",
+      "moderate",
+    )
+    .option(
+      "--form-mode <mode>",
+      "Form mount mode: page|modal|sidepanel|inline",
+      "page",
+    )
+    .option("--with-tests", "Generate test files")
+    .option("--no-frontend", "Skip frontend generation")
+    .option("--interactive", "Prompt interactively for missing resource details")
+    .option("--dry-run", "Preview the file plan without writing")
+    .option(
+      "--relations <spec>",
+      "Virtual hasMany: virtualField:hasMany:ChildModel:foreignKeyOnChild (repeat with ;)",
+    )
+    .option(
+      "--amend",
+      "Update an existing resource; merge --fields, preserve custom code zones",
+    )
+    .option(
+      "--remove-fields <list>",
+      "Remove fields by name on amend (comma-separated)",
+    )
+    .option(
+      "--force",
+      "On amend, overwrite files without AUTO-GENERATED markers / custom zone",
+    );
+
+resourceOptions(
+  generateCmd
+    .command("resource [name]")
+    .description(
+      "Generate a full-stack resource via the engine (recipe-driven, transactional, validated)",
+    ),
+).action((name, options) =>
+  generateResource(options.recipe || "resource", name, {
+    ...program.opts(),
+    ...options,
+  }),
+);
+
+// Alias: loom resource sync <Name> === generate resource <Name> --amend
+const resourceCmd = program
+  .command("resource")
+  .description("Resource lifecycle helpers");
+
+resourceOptions(
+  resourceCmd
+    .command("sync <name>")
+    .description(
+      "Amend an existing resource (merge fields, preserve custom zones) — alias for generate resource --amend",
+    ),
+).action((name, options) =>
+  generateResource("resource", name, {
+    ...program.opts(),
+    ...options,
+    amend: true,
+  }),
+);
 
 generateCmd
   .command("module <name>")
@@ -304,6 +344,12 @@ program
   .command("check")
   .description("Verify project + environment health (blueprint, anchors, env)")
   .action((options) => check({ ...program.opts(), ...options }));
+
+// Upgrade — CLI vs blueprint / template compatibility (read-only)
+program
+  .command("upgrade")
+  .description("Check CLI vs project blueprint and template metadata (read-only)")
+  .action((options) => upgrade({ ...program.opts(), ...options }));
 
 // Env — keep .env in sync with .env.example
 program

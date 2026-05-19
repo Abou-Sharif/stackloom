@@ -30,6 +30,7 @@ describe("Stackloom CLI Smoke Tests", () => {
     expect(output).toContain("Usage: loom");
     expect(output).toContain("init");
     expect(output).toContain("generate");
+    expect(output).toContain("upgrade");
   }, SMOKE_TIMEOUT);
 
   it("should fail when running doctor outside project", () => {

@@ -103,4 +103,10 @@ describe("validateGenerateOptions", () => {
       true,
     );
   });
+
+  it("rejects --remove-fields without --amend", () => {
+    const r = validateGenerateOptions({ removeFields: "sku" });
+    expect(r.success).toBe(false);
+    expect(r.issues.some((i) => i.includes("remove-fields"))).toBe(true);
+  });
 });

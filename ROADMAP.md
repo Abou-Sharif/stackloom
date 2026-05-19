@@ -4,6 +4,9 @@ This file tracks larger capabilities discussed for **solo devs first**, without 
 
 ## Shipped in recent work
 
+- **`--amend` / `loom resource sync`:** update an existing resource; **interactive** amend via `--interactive`; **safety audit** blocks manual edits outside custom zones / markers unless `--force`.
+- **`loom upgrade`:** read-only compatibility check (CLI vs `engine.minCliVersion`, blueprint `schemaVersion`, optional `.loom/metadata.json` `engineCompatibility`).
+- **`--brief`:** on `loom generate resource`, suppresses per-file `+` / `~` lines (structured `file` events unchanged for `--json`).
 - **Refs:** `ref[Model]` field type (ObjectId + Mongoose `ref`, Joi validation, populated `getById`).
 - **Virtual hasMany:** `--relations "virtual:hasMany:ChildModel:foreignKey"` and `relations.hasMany` in definition files; interactive wizard prompts.
 - **Stricter field specs:** invalid `--fields` segments fail with a clear error (no silent drop).
@@ -11,12 +14,12 @@ This file tracks larger capabilities discussed for **solo devs first**, without 
 
 ## Next: schema evolution (add / remove fields)
 
-- **`loom generate resource <Name> --amend`** (or dedicated `loom resource sync`): diff an updated `--file` / `--fields` against the last committed `.loom` journal and patch model, validator, form, table, and API types—without clobbering **custom code zones**.
-- **Guardrails:** refuse amend if the resource module has manual edits outside marked zones (or require `--force`).
+- **Field diff UI** in interactive amend — basic loop shipped (`loom resource sync <Name> --interactive`).
+- **Deeper AST diff** for detecting edits inside generated blocks (optional future work).
 
 ## Next: upgrade path (CLI + template drift)
 
-- **`loom upgrade`** (or `loom doctor --fix`): compare `blueprint.schemaVersion` / template tag to the running CLI; print a checklist of safe automated steps vs manual steps.
+- **`loom upgrade --write` / migrations:** today `loom upgrade` is **read-only**; next step is optional fixes (e.g. refresh anchors) behind a flag.
 - **Recipe migrations:** versioned transforms (e.g. rename anchor comments, split files) applied in a transaction, same as generation.
 
 ## Next: architecture-only output
@@ -37,7 +40,7 @@ This file tracks larger capabilities discussed for **solo devs first**, without 
 
 ## Reporting & ops
 
-- **`--brief`:** suppress per-file lines; show only digest + errors (optional global flag).
+- **`--brief`:** shipped for `generate resource`; optional extension to other commands.
 - **Shell completions** for bash/zsh.
 
 Contributions welcome: pick a section, open an issue with the intended behaviour, then implement behind small PRs.

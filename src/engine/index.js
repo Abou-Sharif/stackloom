@@ -17,5 +17,6 @@ export {
   createRenderStep,
   createInjectStep,
   createValidateStep,
+  createAmendMergeStep,
   createGenerationPipeline,
 } from "./pipeline.js";

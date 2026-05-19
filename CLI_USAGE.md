@@ -13,8 +13,19 @@ Every command accepts these global options:
 | `--no-color`    | Disable ANSI color                                                            |
 | `--debug`       | Show diagnostic detail                                                        |
 | `-y, --yes`     | Assume defaults and never prompt                                              |
+| `--brief`       | Less verbose human output where supported (e.g. `generate resource`)          |
 | `-V, --version` | Print the CLI version                                                         |
 | `-h, --help`    | Show help for a command                                                       |
+
+## Compatibility (`loom upgrade`)
+
+Run from the **project root** (where `backend/` and `frontend/` live, or `.loom/blueprint.json` exists):
+
+```bash
+loom upgrade
+```
+
+Read-only summary: this CLI’s version vs the blueprint’s `engine.minCliVersion` and `schemaVersion`, plus optional `.loom/metadata.json` (`engineCompatibility`, `stack`). Does not modify files — use it before pulling template or CLI updates.
 
 ## Start a project
 
@@ -83,6 +94,7 @@ A single `generate resource` command can create or extend:
 | `--interactive`      | n/a                                    | Prompt for missing resource details interactively |
 | `--dry-run`          | n/a                                    | Preview the file plan without writing any changes |
 | `--relations <spec>` | `virtual:hasMany:Model:foreignKey;…`   | Mongoose virtual `hasMany` populate (see below)   |
+| `--brief`            | n/a                                    | Skip per-file `+` / `~` lines (still emits `file` events in `--json`) |
 
 ### `--relations` (virtual hasMany)
 
@@ -124,6 +136,25 @@ Example on `Customer`: `--relations "orders:hasMany:Order:customerId"` exposes `
 Example: `"email:email:required|unique;age:number:min=0;role:select"`
 
 ObjectId to another model: `categoryId:ref[Category]:required` — `Category` must match the referenced resource’s Mongoose model name (PascalCase).
+
+### Amending (`--amend` / `loom resource sync`)
+
+```bash
+loom resource sync Product --fields "sku:string:required"
+loom generate resource Product --amend --remove-fields "oldField"
+```
+
+Loads the last saved definition from `.loom/resources/product.json`, merges `--fields` by name, applies `--remove-fields`, re-renders resource files, and preserves **custom code zones** on the model (and `AUTO-GENERATED` blocks elsewhere). Requires a prior `generate resource` for that name.
+
+| Flag | What it does |
+| ---- | ------------ |
+| `--amend` | Amend mode (also: `loom resource sync <Name>`) |
+| `--remove-fields <list>` | Comma-separated field names to drop (amend only) |
+| `--force` | Overwrite files without markers / custom zone |
+
+**Safety:** amend stops if manual code appears outside the custom zone or `AUTO-GENERATED` blocks. Use `--force` to override.
+
+**Interactive:** `loom resource sync Product --interactive` — menu to add, remove, or wire relations, then apply.
 
 ## Available generate commands
 
