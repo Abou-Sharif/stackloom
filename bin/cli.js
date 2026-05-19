@@ -119,7 +119,11 @@ const resourceOptions = (cmd) =>
   cmd
     .option("--fields <spec>", "Field spec: 'name:type:rules;...'")
     .option("--file <path>", "Path to a resource definition file")
-    .option("--recipe <name>", "Recipe to run: resource|module|page", "resource")
+    .option(
+      "--recipe <name>",
+      "Recipe to run: resource|module|page",
+      "resource",
+    )
     .option(
       "--arch <level>",
       "Architecture: lightweight|moderate|advanced",
@@ -132,7 +136,10 @@ const resourceOptions = (cmd) =>
     )
     .option("--with-tests", "Generate test files")
     .option("--no-frontend", "Skip frontend generation")
-    .option("--interactive", "Prompt interactively for missing resource details")
+    .option(
+      "--interactive",
+      "Prompt interactively for missing resource details",
+    )
     .option("--dry-run", "Preview the file plan without writing")
     .option(
       "--relations <spec>",
@@ -306,7 +313,9 @@ dataCmd
   .action(customize.customizeDataSet);
 
 // ── UI variants ──
-const uiCmd = customizeCmd.command("ui").description("UI component variant operations");
+const uiCmd = customizeCmd
+  .command("ui")
+  .description("UI component variant operations");
 uiCmd
   .command("set [variant]")
   .description("Switch card, modal, select, and pagination styles")
@@ -362,7 +371,10 @@ program
   .description(
     "Check CLI vs project blueprint and template metadata; pass --write to apply safe upgrade migrations.",
   )
-  .option("--write", "Apply safe, low-risk project migrations after compatibility check")
+  .option(
+    "--write",
+    "Apply safe, low-risk project migrations after compatibility check",
+  )
   .action((options) => upgrade({ ...program.opts(), ...options }));
 
 // Env — keep .env in sync with .env.example

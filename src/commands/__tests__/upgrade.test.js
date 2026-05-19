@@ -10,7 +10,11 @@ const tmp = (label) =>
   path.join(os.tmpdir(), `${label}-${Math.random().toString(36).slice(2)}`);
 
 const silent = () =>
-  new Reporter({ stdout: { write() {}, isTTY: false }, stderr: { write() {} }, env: {} });
+  new Reporter({
+    stdout: { write() {}, isTTY: false },
+    stderr: { write() {} },
+    env: {},
+  });
 
 afterEach(() => {
   process.exitCode = 0;
@@ -33,7 +37,10 @@ describe("loom upgrade", () => {
     writeFileSync(path.join(root, ".loom", "blueprint.json"), builtin);
     writeFileSync(
       path.join(root, ".loom", "metadata.json"),
-      JSON.stringify({ engineCompatibility: "stackloom-cli@>=0.1.0", stack: "mern" }),
+      JSON.stringify({
+        engineCompatibility: "stackloom-cli@>=0.1.0",
+        stack: "mern",
+      }),
     );
     mkdirSync(path.join(root, "backend"), { recursive: true });
     mkdirSync(path.join(root, "frontend"), { recursive: true });
@@ -78,7 +85,10 @@ describe("loom upgrade", () => {
     const data = JSON.parse(readFileSync(blueprintLoader.builtinPath, "utf-8"));
     data.engine = { minCliVersion: "99.0.0" };
     mkdirSync(path.join(root, ".loom"), { recursive: true });
-    writeFileSync(path.join(root, ".loom", "blueprint.json"), JSON.stringify(data));
+    writeFileSync(
+      path.join(root, ".loom", "blueprint.json"),
+      JSON.stringify(data),
+    );
     mkdirSync(path.join(root, "backend"), { recursive: true });
     mkdirSync(path.join(root, "frontend"), { recursive: true });
 

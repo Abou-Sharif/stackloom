@@ -43,7 +43,9 @@ async function createBackup(projectRoot, reporter, filePaths) {
     await fs.copy(filePath, destination, { overwrite: false });
   }
 
-  reporter.info(`Created backup of existing files at ${path.relative(projectRoot, backupDir)}`);
+  reporter.info(
+    `Created backup of existing files at ${path.relative(projectRoot, backupDir)}`,
+  );
   return backupDir;
 }
 
@@ -80,12 +82,22 @@ async function refreshMetadata(projectRoot, reporter, cliPkg, cliVersion) {
   return null;
 }
 
-async function applySafeProjectMigrations(projectRoot, reporter, cliPkg, cliVersion) {
+async function applySafeProjectMigrations(
+  projectRoot,
+  reporter,
+  cliPkg,
+  cliVersion,
+) {
   const migratedFiles = [];
   const metadataPath = path.join(projectRoot, ".loom", "metadata.json");
 
   await createBackup(projectRoot, reporter, [metadataPath]);
-  const refreshed = await refreshMetadata(projectRoot, reporter, cliPkg, cliVersion);
+  const refreshed = await refreshMetadata(
+    projectRoot,
+    reporter,
+    cliPkg,
+    cliVersion,
+  );
   if (refreshed) migratedFiles.push(refreshed);
 
   return migratedFiles;
@@ -94,7 +106,8 @@ async function applySafeProjectMigrations(projectRoot, reporter, cliPkg, cliVers
 function looksLikeStackloomProject(root) {
   const hasBlueprint = existsSync(path.join(root, ".loom", "blueprint.json"));
   const hasStack =
-    existsSync(path.join(root, "backend")) && existsSync(path.join(root, "frontend"));
+    existsSync(path.join(root, "backend")) &&
+    existsSync(path.join(root, "frontend"));
   return hasBlueprint || hasStack;
 }
 
@@ -148,7 +161,9 @@ export default async function upgrade(options = {}) {
     }
 
     reporter.step(`CLI: ${cliVersion}`);
-    reporter.step(`Effective blueprint: ${path.relative(projectRoot, bp.source) || bp.source}`);
+    reporter.step(
+      `Effective blueprint: ${path.relative(projectRoot, bp.source) || bp.source}`,
+    );
     reporter.info(bp.describe());
 
     const sv = bp.schemaVersion;
@@ -190,7 +205,9 @@ export default async function upgrade(options = {}) {
           );
           bump("warn");
         } else {
-          reporter.success(`Template metadata satisfied: ${meta.engineCompatibility}`);
+          reporter.success(
+            `Template metadata satisfied: ${meta.engineCompatibility}`,
+          );
         }
       }
       if (meta.stack) reporter.info(`Template stack: ${meta.stack}`);
@@ -203,7 +220,9 @@ export default async function upgrade(options = {}) {
     const ok = errors === 0;
     if (ok && warnings === 0) reporter.success("Compatibility check passed");
     else if (ok)
-      reporter.warn(`Check finished with ${warnings} warning(s) — review messages above.`);
+      reporter.warn(
+        `Check finished with ${warnings} warning(s) — review messages above.`,
+      );
 
     migrationsApplied = [];
     if (ok && write) {
@@ -215,7 +234,9 @@ export default async function upgrade(options = {}) {
         cliVersion,
       );
       if (migrationsApplied.length) {
-        reporter.success(`Applied ${migrationsApplied.length} safe project migration(s).`);
+        reporter.success(
+          `Applied ${migrationsApplied.length} safe project migration(s).`,
+        );
       } else {
         reporter.info("No safe migration changes were necessary.");
       }
@@ -233,7 +254,12 @@ export default async function upgrade(options = {}) {
     if (!ok) process.exitCode = 1;
   } catch (err) {
     reporter.error(err.message);
-    reporter.result({ ok: false, error: err.message, cliVersion, migrationsApplied });
+    reporter.result({
+      ok: false,
+      error: err.message,
+      cliVersion,
+      migrationsApplied,
+    });
     process.exitCode = 1;
     bump("error");
     reporter.flush();

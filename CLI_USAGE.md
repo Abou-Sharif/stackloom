@@ -85,18 +85,18 @@ A single `generate resource` command can create or extend:
 
 ### `loom generate resource` options
 
-| Flag                 | Values                                 | What it does                                      |
-| -------------------- | -------------------------------------- | ------------------------------------------------- |
-| `--fields <spec>`    | `name:type:rules;...`                  | Define the resource schema inline                 |
-| `--file <path>`      | file path                              | Load schema from a resource definition file       |
-| `--recipe <name>`    | `resource`, `module`, `page`           | Choose the kind of generation                     |
-| `--arch <level>`     | `lightweight`, `moderate`, `advanced`  | Choose how much backend structure is generated    |
-| `--form-mode <mode>` | `page`, `modal`, `sidepanel`, `inline` | Choose how the form is mounted in the UI          |
-| `--with-tests`       | n/a                                    | Generate test files for the resource              |
-| `--no-frontend`      | n/a                                    | Skip frontend generation, backend-only output     |
-| `--interactive`      | n/a                                    | Prompt for missing resource details interactively |
-| `--dry-run`          | n/a                                    | Preview the file plan without writing any changes |
-| `--relations <spec>` | `virtual:hasMany:Model:foreignKey;…`   | Mongoose virtual `hasMany` populate (see below)   |
+| Flag                 | Values                                 | What it does                                                          |
+| -------------------- | -------------------------------------- | --------------------------------------------------------------------- |
+| `--fields <spec>`    | `name:type:rules;...`                  | Define the resource schema inline                                     |
+| `--file <path>`      | file path                              | Load schema from a resource definition file                           |
+| `--recipe <name>`    | `resource`, `module`, `page`           | Choose the kind of generation                                         |
+| `--arch <level>`     | `lightweight`, `moderate`, `advanced`  | Choose how much backend structure is generated                        |
+| `--form-mode <mode>` | `page`, `modal`, `sidepanel`, `inline` | Choose how the form is mounted in the UI                              |
+| `--with-tests`       | n/a                                    | Generate test files for the resource                                  |
+| `--no-frontend`      | n/a                                    | Skip frontend generation, backend-only output                         |
+| `--interactive`      | n/a                                    | Prompt for missing resource details interactively                     |
+| `--dry-run`          | n/a                                    | Preview the file plan without writing any changes                     |
+| `--relations <spec>` | `virtual:hasMany:Model:foreignKey;…`   | Mongoose virtual `hasMany` populate (see below)                       |
 | `--brief`            | n/a                                    | Skip per-file `+` / `~` lines (still emits `file` events in `--json`) |
 
 ### `--relations` (virtual hasMany)
@@ -149,11 +149,11 @@ loom generate resource Product --amend --remove-fields "oldField"
 
 Loads the last saved definition from `.loom/resources/product.json`, merges `--fields` by name, applies `--remove-fields`, re-renders resource files, and preserves **custom code zones** on the model (and `AUTO-GENERATED` blocks elsewhere). Requires a prior `generate resource` for that name.
 
-| Flag | What it does |
-| ---- | ------------ |
-| `--amend` | Amend mode (also: `loom resource sync <Name>`) |
+| Flag                     | What it does                                     |
+| ------------------------ | ------------------------------------------------ |
+| `--amend`                | Amend mode (also: `loom resource sync <Name>`)   |
 | `--remove-fields <list>` | Comma-separated field names to drop (amend only) |
-| `--force` | Overwrite files without markers / custom zone |
+| `--force`                | Overwrite files without markers / custom zone    |
 
 **Safety:** amend stops if manual code appears outside the custom zone or `AUTO-GENERATED` blocks. Use `--force` to override.
 
@@ -194,14 +194,14 @@ loom customize ui set studio
 loom customize brand set --name "Acme" --tagline "Ship faster"
 ```
 
-| Command                                    | What it does                                  |
-| ------------------------------------------ | --------------------------------------------- |
-| `loom customize theme`                     | Theme operations and imports                  |
-| `loom customize layout`                    | Layout shell operations                       |
-| `loom customize brand`                     | Brand name / tagline / description operations |
-| `loom customize data`                      | Data display template operations              |
-| `loom customize ui`                        | Card, modal, select, pagination variant presets |
-| `list-themes`, `list-layouts`, `list-data`, `list-ui` | Show available built-in options     |
+| Command                                               | What it does                                    |
+| ----------------------------------------------------- | ----------------------------------------------- |
+| `loom customize theme`                                | Theme operations and imports                    |
+| `loom customize layout`                               | Layout shell operations                         |
+| `loom customize brand`                                | Brand name / tagline / description operations   |
+| `loom customize data`                                 | Data display template operations                |
+| `loom customize ui`                                   | Card, modal, select, pagination variant presets |
+| `list-themes`, `list-layouts`, `list-data`, `list-ui` | Show available built-in options                 |
 
 ## Env / project maintenance
 

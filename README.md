@@ -49,7 +49,7 @@ not an engine change.
 | `loom generate theme`                  | Import a shadcn theme                                                 |
 | `loom generate deploy`                 | Generate deployment configuration for Docker, Vercel, Railway         |
 | `loom check`                           | Verify project health: blueprint validity, anchor integrity, env file |
-| `loom upgrade`                         | Check compatibility; add `--write` to apply safe upgrade migrations    |
+| `loom upgrade`                         | Check compatibility; add `--write` to apply safe upgrade migrations   |
 | `loom env [--sync]`                    | Compare `.env` to `.env.example`; `--sync` appends missing keys       |
 | `loom rename <name>`                   | Rebrand the CLI itself (bin name, help text, output)                  |
 | `loom cleanup [preset]`                | Clean or de-brand the project (`minimal`, `production`, `template`)   |
