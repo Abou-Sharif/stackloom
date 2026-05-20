@@ -2,6 +2,14 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.9.1] — 2026-05-20
+
+### Changed
+
+- **`init.js`** — added the 3 missing themes (`violetSanctum`, `tealFlow`, `warmNeutral`) to the interactive theme selector with descriptions.
+- **`generate-resource.js` interactive mode** — now prompts for `--crud` scope (Full CRUD vs Insert-only) before generation, so users discover the option.
+- **`wizard.js`** — modernized to support engine-backed `generate resource`, `add-report`, and `scaffold` scenario presets as top options. Resource, report, and scaffold are listed first; deprecated `generate module` moved below with a deprecation note.
+
 ## [1.9.0] — 2026-05-20
 
 ### Added
