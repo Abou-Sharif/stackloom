@@ -2,6 +2,15 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.13.0] — 2026-05-20
+
+### Added
+
+- **HasMany virtual population (end-to-end)** — `--relations` virtual populate definitions now work fully:
+  - `getById` (service + lightweight controller) populates hasMany virtuals so the detail API response includes related items.
+  - Detail pages show a card for each hasMany relation with a count header and clickable links to each related record.
+  - Example: `Customer` with `orders:hasMany:Order:customerId` — fetching a customer returns their orders populated, and the detail page displays an "Orders (3)" card with links.
+
 ## [1.12.0] — 2026-05-20
 
 ### Added

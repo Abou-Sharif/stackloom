@@ -71,6 +71,35 @@ export default function <%= resource.pascalName %>DetailPage() {
               <% }); %>
            </CardContent>
         </Card>
+<% if (resource.relations && resource.relations.hasMany && resource.relations.hasMany.length > 0) { -%>
+  <% resource.relations.hasMany.forEach(function(rel) { -%>
+  <% const relLabel = rel.field.charAt(0).toUpperCase() + rel.field.slice(1); -%>
+  <% const relEp = utils.kebab(rel.model) + 's'; -%>
+        <Card>
+          <CardHeader>
+            <CardTitle><%- relLabel %> ({item.<%- rel.field %>?.length || 0})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {item.<%- rel.field %>?.length > 0 ? (
+              <ul className="space-y-1">
+                {item.<%- rel.field %>.map((relItem) => (
+                  <li key={relItem._id}>
+                    <a
+                      href={`/admin/<%- relEp %>/${relItem._id}`}
+                      className="text-primary hover:underline"
+                    >
+                      {relItem.name || relItem.title || relItem.code || relItem.email || relItem._id?.slice(0, 8)}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No <%- rel.field %> found.</p>
+            )}
+          </CardContent>
+        </Card>
+  <% }); -%>
+<% } -%>
       </div>
     </PageWrapper>
   );

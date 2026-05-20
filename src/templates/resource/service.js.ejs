@@ -72,13 +72,17 @@ const getAll<%= resource.pascalName %>s = async (filters = {}) => {
 
 // ── Get One ──────────────────────────────────────────────────────────────────
 const get<%= resource.pascalName %>ById = async (id) => {
+  let query = <%= resource.pascalName %>Model.findById(id);
 <% if (_refPopulate.length) { -%>
-  const doc = await <%= resource.pascalName %>Model.findById(id)
-    .populate(<%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>)
-    .exec();
-<% } else { -%>
-  const doc = await <%= resource.pascalName %>Model.findById(id);
+  query = query.populate(<%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>);
 <% } -%>
+<% if (resource.relations && resource.relations.hasMany && resource.relations.hasMany.length > 0) { -%>
+  // Populate hasMany virtuals (e.g. Customer → orders)
+<% resource.relations.hasMany.forEach(function(rel) { -%>
+  query = query.populate('<%- rel.field %>');
+<% }); -%>
+<% } -%>
+  const doc = await query.exec();
   if (!doc) throw new ApiError(404, '<%= resource.name %> not found');
   return doc;
 };
