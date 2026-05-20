@@ -4,7 +4,7 @@
   "description": "Stackloom CLI — weave production-ready full-stack apps. Recipe-driven, transactional code generation for MERN and beyond.",
   "type": "module",
   "bin": {
-    "loom": "./bin/cli.js"
+    "loom": "bin/cli.js"
   },
   "main": "./src/index.js",
   "scripts": {
