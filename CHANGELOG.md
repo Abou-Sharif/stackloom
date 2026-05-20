@@ -2,6 +2,24 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.10.0] — 2026-05-20
+
+### Added
+
+- **Auto-interactive mode** — `loom generate resource <name>` without `--fields`, `--file`, `--amend`, or `--relations` now auto-enters interactive mode. Users no longer need to remember `--interactive` for guided setup.
+- **`loom init --scenario <name>`** — initializes a new project and immediately scaffolds a scenario preset (`parking`, `payroll`, `inventory`, `booking`, `delivery`) in one command.
+- **Frontend a11y** — generated page templates now include:
+  - `aria-label` on icon-only buttons (refresh, back, edit)
+  - Loading skeleton rows during data fetching (replaces plain "Loading..." text)
+  - Empty state component with descriptive message when no records exist
+  - `role="status"` and `role="alert"` on status/error containers
+
+### Changed
+
+- **Flag consistency** — `--arch` renamed to `--architecture` across all commands (`generate resource`, `make:resource`). Short `-a` remains available.
+- **`--help` output** — quick-start guide added at the top promoting `loom init`, `loom wizard`, and `loom generate resource`.
+- **Scaffold `arch` property** — renamed internally to `architecture` for consistency with CLI flags.
+
 ## [1.9.1] — 2026-05-20
 
 ### Changed

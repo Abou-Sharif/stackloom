@@ -46,7 +46,7 @@ import scaffoldCmd from "../src/commands/scaffold.js";
 
 program
   .name(branding.binName)
-  .description(branding.description)
+  .description(`${branding.description}\n\nQuick start:\n  loom init <name>              Create a new project\n  loom wizard                   Interactive step-by-step guide\n  loom generate resource <name> Generate a full-stack resource`)
   .version(pkg.version)
   // Global output flags — consumed via reporterFromOptions(program.opts()).
   .option(
@@ -95,6 +95,7 @@ program
     "--architecture <level>",
     "Architecture: lightweight|moderate|advanced",
   )
+  .option("--scenario <name>", "Auto-scaffold a scenario preset after init: parking|payroll|inventory|booking|delivery")
   .option("--no-install", "Skip pnpm install")
   .option("--target <dir>", "Output directory")
   .option(
@@ -136,9 +137,9 @@ const resourceOptions = (cmd) =>
       "moderate",
     )
     .option(
-      "--form-mode <mode>",
-      "Form mount mode: page|modal|sidepanel|inline",
-      "page",
+      "--architecture <level>",
+      "Architecture: lightweight|moderate|advanced",
+      "moderate",
     )
     .option("--with-tests", "Generate test files")
     .option("--no-frontend", "Skip frontend generation")
@@ -519,7 +520,7 @@ program
   .option("--dry-run", "Preview changes without writing")
   .option("--force", "Overwrite existing files")
   .option(
-    "--arch <level>",
+    "--architecture <level>",
     "Architecture: lightweight|moderate|advanced",
     "moderate",
   )

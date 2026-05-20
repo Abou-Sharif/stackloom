@@ -3,10 +3,31 @@ import { use<%= resource.pascalName %> } from "@/hooks/use<%= resource.pascalNam
 import { <%= resource.pascalName %>Table } from "@/components/tables/<%= resource.pascalName %>Table";
 import { <%= resource.pascalName %>Form } from "@/components/forms/<%= resource.pascalName %>Form";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw } from "lucide-react";
+import { RefreshCcw, Inbox } from "lucide-react";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import api from "@/api/<%= resource.kebabName %>.api";
 import { toast } from "sonner";
+
+function SkeletonRow() {
+  return (
+    <tr className="animate-pulse">
+      <% resource.fields.forEach(function(f) { %>
+      <td className="p-3"><div className="h-4 w-3/4 rounded bg-muted" /></td>
+      <% }); %>
+      <td className="p-3"><div className="h-8 w-20 rounded bg-muted" /></td>
+    </tr>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center" role="status">
+      <Inbox className="mb-4 h-12 w-12 text-muted-foreground/50" />
+      <p className="text-lg font-medium text-muted-foreground">No <%= resource.pluralPascal.toLowerCase() %> found</p>
+      <p className="mt-1 text-sm text-muted-foreground/70">Get started by creating your first <%= resource.name.toLowerCase() %>.</p>
+    </div>
+  );
+}
 
 // form-mode: inline — the create/edit form is always visible above the table.
 export default function <%= resource.pascalName %>ListPage() {
@@ -60,7 +81,7 @@ export default function <%= resource.pascalName %>ListPage() {
       title="<%= resource.pluralPascal %>"
       subtitle="Manage your <%= resource.pluralPascal.toLowerCase() %>"
       actions={
-        <Button variant="outline" size="icon" onClick={() => refresh()} disabled={loading}>
+        <Button variant="outline" size="icon" onClick={() => refresh()} disabled={loading} aria-label="Refresh list">
           <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       }
@@ -81,7 +102,17 @@ export default function <%= resource.pascalName %>ListPage() {
         </section>
 
         <section>
-          <<%= resource.pascalName %>Table data={data} onEdit={handleEdit} onDelete={handleDelete} />
+          {loading ? (
+            <table className="w-full">
+              <tbody>
+                <SkeletonRow /><SkeletonRow /><SkeletonRow />
+              </tbody>
+            </table>
+          ) : data && data.length > 0 ? (
+            <<%= resource.pascalName %>Table data={data} onEdit={handleEdit} onDelete={handleDelete} />
+          ) : (
+            <EmptyState />
+          )}
         </section>
       </div>
     </PageWrapper>

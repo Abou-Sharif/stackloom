@@ -633,8 +633,19 @@ export default async function generateResource(type, name, options = {}) {
   const projectRoot = process.cwd();
   let executionOptions = { ...options };
 
+  // Normalise --architecture to internal .arch
+  if (executionOptions.architecture && !executionOptions.arch) {
+    executionOptions.arch = executionOptions.architecture;
+  }
+
   try {
-    if (executionOptions.interactive) {
+    const hasExplicitOpts = Boolean(
+      executionOptions.fields ||
+      executionOptions.file ||
+      executionOptions.amend ||
+      executionOptions.relations
+    );
+    if (executionOptions.interactive || (!executionOptions.yes && !hasExplicitOpts)) {
       const interactiveResult = await promptGenerateResourceOptions(
         type,
         name,

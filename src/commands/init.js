@@ -13,6 +13,7 @@ import {
   validateMernTemplate,
   validateTemplateContract,
 } from "../utils/templateValidator.js";
+import scaffoldCmd from "./scaffold.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -612,6 +613,20 @@ export default async function initCmd(projectName, options) {
 
   log(chalk.green.bold("\n✅ StackLoom scaffold complete!"));
   log("");
+
+  if (config.scenario) {
+    const scenarioName = config.scenario.toLowerCase();
+    const projectDir = path.resolve(process.cwd(), resolvedProjectName);
+    log(chalk.cyan(`\n📦 Scaffolding scenario: ${scenarioName} in ${projectDir}\n`));
+    const origDir = process.cwd();
+    process.chdir(projectDir);
+    try {
+      await scaffoldCmd(scenarioName, { brief: true });
+    } finally {
+      process.chdir(origDir);
+    }
+  }
+
   log(chalk.white("Next steps:"));
   log(chalk.white(`  cd ${resolvedProjectName}`));
   log(chalk.white(`  cp .env.example .env        # fill in your values`));
