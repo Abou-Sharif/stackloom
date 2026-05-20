@@ -75,4 +75,8 @@ export const blueprintSchema = object({
   recipes: record(string()).default({}),
   /** Named preset file locations (themes, layouts, ...). */
   presets: record(string()).default({}),
+  /** Project-level defaults for generation options. */
+  defaults: object({
+    formMode: enumOf("page", "modal", "sidepanel", "inline").optional(),
+  }).optional(),
 });

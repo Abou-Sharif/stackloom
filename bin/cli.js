@@ -168,6 +168,10 @@ const resourceOptions = (cmd) =>
       "--crud <mode>",
       "CRUD scope: full|insert-only (default: full)",
       "full",
+    )
+    .option(
+      "--form-mode <mode>",
+      "Form display mode: page|modal|sidepanel|inline (default: project default or page)",
     );
 
 resourceOptions(

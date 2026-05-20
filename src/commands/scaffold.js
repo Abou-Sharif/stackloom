@@ -2,7 +2,18 @@
 
 import ora from 'ora';
 import chalk from 'chalk';
+import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import generateResource from './generate-resource.js';
+
+function projectDefaultFormMode() {
+  try {
+    const bpPath = path.join(process.cwd(), '.loom', 'blueprint.json');
+    const bp = JSON.parse(readFileSync(bpPath, 'utf-8'));
+    if (bp.defaults?.formMode) return bp.defaults.formMode;
+  } catch {}
+  return null;
+}
 
 const SCENARIOS = {
   parking: {
@@ -28,6 +39,7 @@ const SCENARIOS = {
         relations: '',
         withFrontend: true,
         arch: 'moderate',
+        formMode: 'modal',
       },
     ],
   },
@@ -54,6 +66,7 @@ const SCENARIOS = {
         relations: '',
         withFrontend: true,
         arch: 'moderate',
+        formMode: 'inline',
       },
       {
         name: 'Payroll',
@@ -61,6 +74,7 @@ const SCENARIOS = {
         relations: '',
         withFrontend: true,
         arch: 'moderate',
+        formMode: 'modal',
       },
     ],
   },
@@ -80,6 +94,7 @@ const SCENARIOS = {
         relations: 'stockMovements:hasMany:StockMovement:product',
         withFrontend: true,
         arch: 'moderate',
+        formMode: 'sidepanel',
       },
       {
         name: 'Supplier',
@@ -94,6 +109,7 @@ const SCENARIOS = {
         relations: '',
         withFrontend: true,
         arch: 'moderate',
+        formMode: 'inline',
       },
     ],
   },
@@ -120,6 +136,7 @@ const SCENARIOS = {
         relations: '',
         withFrontend: true,
         arch: 'moderate',
+        formMode: 'sidepanel',
       },
     ],
   },
@@ -146,6 +163,7 @@ const SCENARIOS = {
         relations: 'orders:hasMany:Order:package',
         withFrontend: true,
         arch: 'moderate',
+        formMode: 'modal',
       },
       {
         name: 'Order',
@@ -153,6 +171,7 @@ const SCENARIOS = {
         relations: '',
         withFrontend: true,
         arch: 'moderate',
+        formMode: 'sidepanel',
       },
     ],
   },
@@ -160,12 +179,13 @@ const SCENARIOS = {
 
 async function generateResourceSafe(resource, options) {
   try {
+    const formMode = resource.formMode || options.formMode || projectDefaultFormMode() || 'page';
     await generateResource('resource', resource.name, {
       fields: resource.fields,
       relations: resource.relations,
       frontend: resource.withFrontend !== false,
       arch: resource.arch || 'moderate',
-      formMode: resource.formMode || 'page',
+      formMode,
       brief: true,
       ...options,
     });

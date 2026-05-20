@@ -335,6 +335,21 @@ export default async function initCmd(projectName, options) {
     });
   }
 
+  if (!config.formMode) {
+    questions.push({
+      type: "list",
+      name: "formMode",
+      message: "Default form display mode:",
+      choices: [
+        { name: "Page form (dedicated route)", value: "page" },
+        { name: "Modal dialog (overlay)", value: "modal" },
+        { name: "Sidepanel / drawer (slide-in)", value: "sidepanel" },
+        { name: "Inline form (above table)", value: "inline" },
+      ],
+      default: "page",
+    });
+  }
+
   if (config.install === undefined) {
     questions.push({
       type: "confirm",
@@ -513,6 +528,21 @@ export default async function initCmd(projectName, options) {
       await fs.ensureDir(path.dirname(sanitizePath));
       await fs.writeFile(sanitizePath, sanitizeUtilContent);
     }
+
+    // Write project-level default form-mode to the blueprint
+    if (finalConfig.formMode) {
+      const bpPath = path.join(outDir, ".loom", "blueprint.json");
+      if (await fs.pathExists(bpPath)) {
+        try {
+          const bp = JSON.parse(await fs.readFile(bpPath, "utf-8"));
+          bp.defaults = { ...(bp.defaults || {}), formMode: finalConfig.formMode };
+          await fs.writeFile(bpPath, JSON.stringify(bp, null, 2) + "\n");
+        } catch {
+          // non-fatal — blueprint defaults are advisory
+        }
+      }
+    }
+
     spinner.succeed("Project customized");
   } catch (err) {
     spinner.fail("Customization failed");

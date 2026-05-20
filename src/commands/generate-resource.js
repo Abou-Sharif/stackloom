@@ -9,11 +9,21 @@
  */
 import inquirer from "inquirer";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import {
   ResourceDefinition,
   parseFieldSpec,
   parseRelationsSpec,
 } from "../core/resource-definition.js";
+
+function projectDefaultFormMode() {
+  try {
+    const bpPath = path.join(process.cwd(), ".loom", "blueprint.json");
+    const bp = JSON.parse(readFileSync(bpPath, "utf-8"));
+    if (bp.defaults?.formMode) return bp.defaults.formMode;
+  } catch {}
+  return null;
+}
 import {
   mergeFieldLists,
   removeFieldsFromList,
@@ -603,18 +613,19 @@ async function promptGenerateResourceOptions(type, name, options) {
   }
 
   if (!interactiveOptions.formMode) {
+    const projectDefault = projectDefaultFormMode();
     const { formMode } = await inquirer.prompt([
       {
         type: "list",
         name: "formMode",
-        message: "Form mode:",
+        message: `Form mode${projectDefault ? ` (project default: ${projectDefault})` : ""}:`,
         choices: [
           { name: "Page form", value: "page" },
           { name: "Modal dialog", value: "modal" },
           { name: "Sidepanel / drawer", value: "sidepanel" },
           { name: "Inline form above content", value: "inline" },
         ],
-        default: "page",
+        default: projectDefault || "page",
       },
     ]);
     interactiveOptions.formMode = formMode;
@@ -667,6 +678,11 @@ export default async function generateResource(type, name, options = {}) {
 
     const resource = await resolveResource(name, executionOptions, projectRoot);
     const blueprint = await blueprintLoader.load(projectRoot);
+
+    // Apply project-level default form-mode if not explicitly set
+    if (!executionOptions.formMode && blueprint.data.defaults?.formMode) {
+      executionOptions.formMode = blueprint.data.defaults.formMode;
+    }
 
     if (executionOptions.amend) {
       assertAmendTargetExists(projectRoot, blueprint, resource);

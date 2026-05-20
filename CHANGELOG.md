@@ -2,6 +2,20 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.11.0] — 2026-05-20
+
+### Added
+
+- **`--form-mode` CLI flag** — `loom generate resource` now accepts `--form-mode page|modal|sidepanel|inline` directly, not just in interactive mode.
+- **Project-level default form-mode** — `loom init` prompts for a default form display mode. This is stored in `.loom/blueprint.json` and used for all future `generate resource` and `scaffold` calls unless overridden per-command.
+- **Scaffold form-mode overrides** — each scenario resource now has a fitting form-mode:
+  - Parking: Ticket → `modal` (quick entry), ParkingSlot/Vehicle → `page`
+  - Payroll: Timesheet → `inline`, Payroll → `modal`, Department/Employee → `page`
+  - Inventory: StockMovement → `inline`, Product → `sidepanel`, Category/Supplier → `page`
+  - Booking: Booking → `sidepanel`, Customer/Service → `page`
+  - Delivery: Order → `sidepanel`, Package → `modal`, Driver/Route → `page`
+- **Blueprint `defaults` schema** — optional `defaults.formMode` in `.loom/blueprint.json` stores the project-wide default.
+
 ## [1.10.0] — 2026-05-20
 
 ### Added
