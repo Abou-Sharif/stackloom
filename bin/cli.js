@@ -320,6 +320,28 @@ themeCmd
   .option("--appearance <recipe>", "Appearance recipe (default: quiet)")
   .action(customize.customizeThemeImport);
 
+// ── Preset subcommands ──
+const presetCmd = themeCmd.command("preset").description("shadcn preset operations");
+presetCmd
+  .command("apply <code>")
+  .description("Resolve and apply a shadcn preset code (e.g. a2r6bw)")
+  .option("--fallback <theme>", "Fallback theme (default: calmBlue)")
+  .option("--appearance <recipe>", "Appearance recipe (default: quiet)")
+  .option("--save <name>", "Save as a local preset after applying")
+  .action(customize.customizeThemePresetApply);
+presetCmd
+  .command("save <name>")
+  .description("Save the current imported theme as a named preset")
+  .action(customize.customizeThemePresetSave);
+presetCmd
+  .command("list")
+  .description("List locally saved theme presets")
+  .action(customize.customizeThemePresetList);
+presetCmd
+  .command("open")
+  .description("Open shadcn/create in browser to build a custom preset")
+  .action(customize.customizeThemePresetOpen);
+
 // ── Layout ──
 const layoutCmd = customizeCmd
   .command("layout")
