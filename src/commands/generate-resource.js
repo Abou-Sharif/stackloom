@@ -58,6 +58,26 @@ const FIELD_TYPE_CHOICES = [
   { name: "Reference → other document (ObjectId)", value: "ref" },
 ];
 
+/** Context-aware field type inference from field name. */
+const FIELD_NAME_TYPES = [
+  { re: /^email|e-?mail$/i, type: "email" },
+  { re: /^phone|telephone|mobile|cell|fax|tel$/i, type: "phone" },
+  { re: /^url|website|homepage|link|web$/i, type: "url" },
+  { re: /^password|passwd|pwd$/i, type: "password" },
+  { re: /^age|count|quantity|qty|price|amount|total|rate|score|rating|rank/i, type: "number" },
+  { re: /^cost|fee|tax|discount|subtotal|balance|budget/i, type: "number" },
+  { re: /^duration|length|width|height|weight|size|distance|capacity/i, type: "number" },
+  { re: /^date|dob|birth|startDate|endDate|dueDate|createdAt|updatedAt|deletedAt/i, type: "date" },
+  { re: /^is[A-Z]|has[A-Z]|can[A-Z]|should[A-Z]|enabled?|disabled?|active|visible|published$/i, type: "boolean" },
+  { re: /^color|colour|hex|rgb$/i, type: "color" },
+  { re: /^image|avatar|photo|picture|thumbnail|icon|logo$/i, type: "file" },
+  { re: /^description|desc|notes|comment|content|bio|summary|details|message|body$/i, type: "text" },
+  { re: /^file|attachment|document|upload|resume|cv$/i, type: "file" },
+  { re: /^name|title|label|slug|code|sku|tag|category|type|status|state$/i, type: "string" },
+  { re: /^address|street|city|state|country|zip|postal/i, type: "string" },
+  { re: /^role|permission|group|team|department|section$/i, type: "string" },
+];
+
 const DEFAULT_PAGE_ICONS = [
   "layout",
   "settings",
@@ -207,6 +227,13 @@ function serializeFieldSpec(field) {
     : `${field.name}:${field.type}`;
 }
 
+function suggestFieldTypeFromName(fieldName) {
+  for (const { re, type } of FIELD_NAME_TYPES) {
+    if (re.test(fieldName)) return type;
+  }
+  return null;
+}
+
 async function askResourceFields() {
   const fields = [];
   while (true) {
@@ -224,7 +251,10 @@ async function askResourceFields() {
         name: "type",
         message: "Field type:",
         choices: FIELD_TYPE_CHOICES,
-        default: "string",
+        default: (answers) => {
+          const suggested = suggestFieldTypeFromName(answers.name);
+          return suggested || "string";
+        },
       },
       {
         type: "input",
@@ -734,11 +764,13 @@ export default async function generateResource(type, name, options = {}) {
     const renderer = (templatePath) =>
       templates.render(templatePath, templateContext, projectRoot);
 
+    const isPreview = Boolean(executionOptions.preview);
     const pipeline = createGenerationPipeline({
       renderer,
       amend: Boolean(executionOptions.amend),
       force: Boolean(executionOptions.force),
       resourceName: resource.name,
+      preview: isPreview,
     });
     const ctx = await pipeline.run({
       projectRoot,
@@ -747,9 +779,22 @@ export default async function generateResource(type, name, options = {}) {
       recipeContext,
       vars,
       templateContext,
-      dryRun: Boolean(executionOptions.dryRun),
+      dryRun: Boolean(executionOptions.dryRun) || isPreview,
       amend: Boolean(executionOptions.amend),
     });
+
+    // Show preview / estimate if requested
+    if (isPreview && ctx.preview) {
+      const { total, estimate } = ctx.preview;
+      reporter.info(`Estimated: ${total} file(s) (${estimate.label})`);
+      reporter.info("Planned files:");
+      for (const f of ctx.preview.files) {
+        reporter.info(`  + ${f}`);
+      }
+      for (const a of ctx.preview.injects) {
+        reporter.info(`  ~ inject into "${a}"`);
+      }
+    }
 
     const { files, dryRun } = ctx.result;
     const creates = files.filter((f) => f.action === "create").length;

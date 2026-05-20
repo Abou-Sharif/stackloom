@@ -14,6 +14,7 @@ export {
   defineStep,
   planStep,
   commitStep,
+  previewStep,
   createRenderStep,
   createInjectStep,
   createValidateStep,

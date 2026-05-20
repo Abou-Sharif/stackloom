@@ -90,6 +90,33 @@ export function createInjectStep({ renderer, injector }) {
 }
 
 /**
+ * Estimate generation time based on file count.
+ */
+function estimateDuration(fileCount) {
+  if (fileCount <= 0) return { seconds: 0, label: "instant" };
+  const est = Math.ceil(fileCount * 0.5);
+  if (est < 60) return { seconds: est, label: `~${est}s` };
+  return { seconds: est, label: `~${Math.ceil(est / 60)}m ${est % 60}s` };
+}
+
+/**
+ * Preview step — counts planned files and estimates duration.
+ * Injects preview info into context so the CLI can show it before generation.
+ */
+export const previewStep = defineStep("preview", (context) => {
+  const { plan } = context;
+  const files = plan.files || [];
+  const injects = plan.inject || [];
+  const estimate = estimateDuration(files.length + injects.length);
+  context.preview = {
+    files: files.map((f) => f.out),
+    injects: injects.map((i) => i.anchor),
+    total: files.length + injects.length,
+    estimate,
+  };
+});
+
+/**
  * On `--amend`, merge staged outputs with on-disk files (custom zones / markers).
  * Injection targets are handled in the inject step and are not merged here.
  */
@@ -179,8 +206,11 @@ export function createGenerationPipeline({
   amend = false,
   force = false,
   resourceName = "",
+  preview = false,
 } = {}) {
-  const steps = [planStep, createRenderStep({ renderer, fs })];
+  const steps = [planStep];
+  if (preview) steps.push(previewStep);
+  steps.push(createRenderStep({ renderer, fs }));
   if (amend) {
     steps.push(createAmendMergeStep({ fs, force, resourceName }));
   }

@@ -151,6 +151,7 @@ const resourceOptions = (cmd) =>
       "Prompt interactively for missing resource details",
     )
     .option("--dry-run", "Preview the file plan without writing")
+    .option("--preview", "Show estimated file count, time, and planned files before generating")
     .option(
       "--relations <spec>",
       "Virtual hasMany: virtualField:hasMany:ChildModel:foreignKeyOnChild (repeat with ;)",
