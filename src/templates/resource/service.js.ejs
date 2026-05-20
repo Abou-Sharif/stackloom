@@ -50,6 +50,21 @@ const getAll<%= resource.pascalName %>s = async (filters = {}) => {
 
   // Count before pagination so callers can build pagination UI.
   const total = await <%= resource.pascalName %>Model.countDocuments(query.getFilter());
+
+<% if (_refPopulate.length) { -%>
+  // Populate ref fields if caller requested them via `populate` query param.
+  // Pass ?populate=true to populate all refs, or ?populate=field1,field2 for specific fields.
+  let populateFields = [];
+  if (filters.populate === true || filters.populate === 'true') {
+    populateFields = <%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>;
+  } else if (Array.isArray(filters.populate) && filters.populate.length > 0) {
+    populateFields = filters.populate;
+  }
+  for (const p of populateFields) {
+    query = query.populate(p);
+  }
+<% } -%>
+
   // .lean() — plain objects, not Mongoose documents, for fast list reads.
   const data = await query.skip((page - 1) * limit).limit(limit).lean().exec();
   return { data, total, page, limit, pages: Math.ceil(total / limit) };
@@ -83,11 +98,14 @@ const update<%= resource.pascalName %> = async (id, updates) => {
   }
 <% } -%>
 <% }); -%>
-  const doc = await <%= resource.pascalName %>Model.findByIdAndUpdate(id, updates, {
+  let doc = await <%= resource.pascalName %>Model.findByIdAndUpdate(id, updates, {
     new: true,
     runValidators: true,
   });
   if (!doc) throw new ApiError(404, '<%= resource.name %> not found');
+<% if (_refPopulate.length) { -%>
+  doc = await doc.populate(<%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>);
+<% } -%>
   return doc;
 };
 

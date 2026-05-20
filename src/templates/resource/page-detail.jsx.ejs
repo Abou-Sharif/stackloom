@@ -58,16 +58,18 @@ export default function <%= resource.pascalName %>DetailPage() {
              <% resource.fields.forEach(function(field) { %>
              <div className="flex justify-between border-b pb-2">
                <span className="font-medium text-muted-foreground"><%- field.name.charAt(0).toUpperCase() + field.name.slice(1) %></span>
-               <span>{<% if (field.type === 'boolean') { %>
-                 item.<%- field.name %> ? 'Yes' : 'No'
-               <% } else if (field.type === 'date' || field.type === 'datetime') { %>
-                 new Date(item.<%- field.name %>).toLocaleString()
-               <% } else { %>
-                 item.<%- field.name %>
-               <% } %>}</span>
-             </div>
-             <% }); %>
-          </CardContent>
+                <span>{<% if (field.type === 'boolean') { %>
+                  item.<%- field.name %> ? 'Yes' : 'No'
+                <% } else if (field.type === 'date' || field.type === 'datetime') { %>
+                  new Date(item.<%- field.name %>).toLocaleString()
+                <% } else if (field.type === 'ref' || field.type === 'reference') { %>
+                  typeof item.<%- field.name %> === 'object' ? (item.<%- field.name %>.name || item.<%- field.name %>.title || item.<%- field.name %>.code || item.<%- field.name %>.email || item.<%- field.name %>._id) : (item.<%- field.name %> ? String(item.<%- field.name %>).slice(0, 8) + '…' : '—')
+                <% } else { %>
+                  item.<%- field.name %>
+                <% } %>}</span>
+              </div>
+              <% }); %>
+           </CardContent>
         </Card>
       </div>
     </PageWrapper>

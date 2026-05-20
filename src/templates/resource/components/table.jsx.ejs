@@ -35,8 +35,8 @@ export const <%= resource.pascalName %>Table = ({ data, onEdit, onDelete, onView
                    item.<%- field.name %> ? 'Yes' : 'No'
                  <% } else if (field.type === 'date' || field.type === 'datetime') { %>
                    new Date(item.<%- field.name %>).toLocaleDateString()
-                 <% } else if (field.type === 'ref' || field.type === 'reference') { %>
-                   item.<%- field.name %> ? String(item.<%- field.name %>).slice(0, 8) + '…' : '—'
+                  <% } else if (field.type === 'ref' || field.type === 'reference') { %>
+                    item.<%- field.name %> ? (typeof item.<%- field.name %> === 'object' ? (item.<%- field.name %>.name || item.<%- field.name %>.title || item.<%- field.name %>.code || item.<%- field.name %>.email || item.<%- field.name %>._id) : String(item.<%- field.name %>).slice(0, 8) + '…') : '—'
                  <% } else { %>
                    item.<%- field.name %>
                  <% } %>}

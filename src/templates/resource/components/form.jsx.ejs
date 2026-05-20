@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,20 +45,29 @@ import {
   }
 } %>
 
-export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel, isLoading, serverErrors }) => {
+export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel, isLoading, serverErrors, refOptions = {} }) => {
   const formSchema = z.object({
 <% resource.fields.forEach(function(f) { -%>
     <%- f.name %>: <%- f.validation.required ? zodType(f) : `${zodType(f)}.optional()` %>,
 <% }); -%>
   });
 
+  const defaultValues = initialData ? {
+<% resource.fields.forEach(function(f) { -%>
+<% if (f.type === 'ref' || f.type === 'reference') { -%>
+    <%- f.name %>: typeof initialData.<%- f.name %> === 'object' ? initialData.<%- f.name %>?._id || '' : initialData.<%- f.name %> || '',
+<% } else { -%>
+    <%- f.name %>: initialData.<%- f.name %>,
+<% } -%>
+<% }); -%>
+  } : {
+<% resource.fields.forEach(function(f) { -%>
+    <%- f.name %>: <%- f.type === 'boolean' ? 'false' : f.type === 'number' || f.type === 'range' ? '0' : "''" %>,
+<% }); -%>
+  };
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-<% resource.fields.forEach(function(f) { -%>
-      <%- f.name %>: <%- f.type === 'boolean' ? 'false' : f.type === 'number' || f.type === 'range' ? '0' : "''" %>,
-<% }); -%>
-    },
+    defaultValues,
   });
 
   useEffect(() => {
@@ -93,19 +102,25 @@ export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel
 <% }); -%>
                   </SelectContent>
                 </Select>
-<% } else if (f.type === 'ref' || f.type === 'reference') { -%>
-                <Input
-                  type="text"
-                  inputMode="text"
-                  autoComplete="off"
-                  placeholder="<%- (f.special && f.special.model) || 'Related' %> ObjectId (24 hex chars)"
-                  {...field}
-                  value={field.value ?? ''}
+<% } else if (f.type === 'ref' || f.type === 'reference') { 
+  const refModel = (f.special && f.special.model) || ''; 
+-%>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={typeof field.value === 'object' ? field.value?._id || '' : field.value || ''}
                   disabled={isLoading}
-                />
-                <FormDescription>
-                  MongoDB ObjectId of the linked <%- (f.special && f.special.model) || 'record' %>.
-                </FormDescription>
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select <%- refModel %>" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(refOptions['<%- refModel %>'] || []).map((item) => (
+                      <SelectItem key={item._id} value={item._id}>
+                        {item.name || item.title || item.code || item.email || item._id?.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 <% } else { -%>
                 <Input type="<%- f.formInputType %>" {...field} disabled={isLoading} />
 <% } -%>

@@ -24,12 +24,20 @@ const list = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 20;
+    let query = <%= resource.pascalName %>.find()
+      .sort({ [req.query.sort || 'createdAt']: req.query.order === 'asc' ? 1 : -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+<% if (_refPopulate.length) { -%>
+    // Populate ref fields if requested via ?populate=true or ?populate=field1,field2
+    if (req.query.populate === 'true') {
+      <%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>.forEach(f => query = query.populate(f));
+    } else if (req.query.populate) {
+      req.query.populate.split(',').forEach(f => query = query.populate(f.trim()));
+    }
+<% } -%>
     const [data, total] = await Promise.all([
-      <%= resource.pascalName %>.find()
-        .sort({ [req.query.sort || 'createdAt']: req.query.order === 'asc' ? 1 : -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
+      query.lean(),
       <%= resource.pascalName %>.countDocuments(),
     ]);
     return res.status(200).json(
@@ -58,11 +66,14 @@ const update = async (req, res, next) => {
 <% if (resource.features && resource.features.auditLog) { -%>
     req.body.updatedBy = req.user?._id;
 <% } -%>
-    const result = await <%= resource.pascalName %>.findByIdAndUpdate(req.params.id, req.body, {
+    let result = await <%= resource.pascalName %>.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
     if (!result) throw new ApiError(404, '<%= resource.pascalName %> not found');
+<% if (_refPopulate.length) { -%>
+    result = await result.populate(<%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>);
+<% } -%>
     return res.status(200).json(new ApiResponse(200, 'Updated', { data: result }).body);
   } catch (err) {
     return next(err);

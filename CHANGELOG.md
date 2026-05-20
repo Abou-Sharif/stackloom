@@ -2,6 +2,24 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.12.0] — 2026-05-20
+
+### Added
+
+- **Reference field Select** — ref/reference fields now render a `<Select>` dropdown in forms instead of a raw ObjectId text input. Options are fetched from the referenced model's API endpoint on mount.
+- **Conditional ref display** — table cells and detail pages now show the referenced record's `name`, `title`, `code`, or `email` when populated, falling back to a short ObjectId when raw.
+- **List endpoint `?populate`** — both service and controller (lightweight) `getAll`/`list` methods accept `?populate=true` (all refs) or `?populate=field1,field2` (specific fields).
+- **Update re-population** — `update` methods now re-populate ref fields after save so the response always contains fully populated data.
+- **TypeScript union types** — ref fields typed as `string | { _id: string; name?: string; ... }` matching both raw and populated states.
+
+### Changed
+
+- **form.jsx.ejs** — ref fields render `<Select>` instead of `<Input type="text">`. Form accepts `refOptions` prop keyed by model name. `defaultValues` computation extracts `_id` from populated ref objects.
+- **table.jsx.ejs** — ref cells check `typeof` for populated objects before rendering.
+- **page-detail.jsx.ejs** — ref values display the referenced record's label when populated.
+- **page-{page,modal,sidepanel,inline}.jsx.ejs** — all four page templates fetch ref options via `axiosInstance` on mount and pass them to the form.
+- **types.ts.ejs** — ref field type is a union of `string | object`.
+
 ## [1.11.0] — 2026-05-20
 
 ### Added

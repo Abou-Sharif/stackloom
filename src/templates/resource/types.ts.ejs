@@ -6,7 +6,7 @@
  export interface <%= resource.pascalName %> {
    _id?: string;
    <% resource.fields.forEach(function(field) { %>
-   <%- field.name %>: <%- field.type === 'number' ? 'number' : field.type === 'boolean' ? 'boolean' : 'string' %>;
+    <%- field.name %>: <%- field.type === 'number' ? 'number' : field.type === 'boolean' ? 'boolean' : (field.type === 'ref' || field.type === 'reference') ? 'string | { _id: string; name?: string; title?: string; code?: string; email?: string }' : 'string' %>;
    <% }); %>
    createdAt?: string;
    updatedAt?: string;
