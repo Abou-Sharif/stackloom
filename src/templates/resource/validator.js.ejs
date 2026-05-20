@@ -11,6 +11,7 @@ const Joi = require('joi');
    <% }); %>
  });
 
+<% if (options.crud !== 'insert-only') { -%>
  // ── Update Schema ────────────────────────────────────────────────────────────
  // Update = Create schema, but fields that aren't required become optional>
  <% const optionalFields = resource.fields.filter(f => !(f.validation && f.validation.required)); %>
@@ -18,9 +19,16 @@ const Joi = require('joi');
    [<%- optionalFields.map(f => `'${f.name}'`).join(', ') %>],
    (schema) => schema.optional()
  )<% } else { %>; // no optional fields: update schema is same as create<% } %>
+<% } -%>
 
+<% if (options.crud !== 'insert-only') { -%>
 module.exports = {
   create<%= resource.pascalName %>Schema,
   update<%= resource.pascalName %>Schema,
 };
+<% } else { -%>
+module.exports = {
+  create<%= resource.pascalName %>Schema,
+};
+<% } -%>
 

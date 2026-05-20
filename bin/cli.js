@@ -160,6 +160,11 @@ const resourceOptions = (cmd) =>
     .option(
       "--force",
       "On amend, overwrite files without AUTO-GENERATED markers / custom zone",
+    )
+    .option(
+      "--crud <mode>",
+      "CRUD scope: full|insert-only (default: full)",
+      "full",
     );
 
 resourceOptions(

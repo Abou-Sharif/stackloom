@@ -5,7 +5,8 @@
     "withFrontend": { "type": "boolean", "default": true, "description": "Generate frontend pages, components, API client and hooks." },
     "withTests": { "type": "boolean", "default": false, "description": "Generate backend test files." },
     "architecture": { "type": "string", "default": "moderate", "description": "lightweight | moderate | advanced." },
-    "formMode": { "type": "string", "default": "page", "description": "page | modal | sidepanel | inline — how the create/edit form is mounted." }
+    "formMode": { "type": "string", "default": "page", "description": "page | modal | sidepanel | inline — how the create/edit form is mounted." },
+    "crud": { "type": "string", "default": "full", "description": "full | insert-only — limits generated routes/views to create-only when set to insert-only." }
   },
   "files": [
     { "template": "resource/model.js.ejs", "out": "{@backend.modules}/{kebab}/models/{Name}.js" },
@@ -14,20 +15,20 @@
     { "template": "resource/routes.js.ejs", "out": "{@backend.modules}/{kebab}/routes/{Name}.routes.js" },
     { "template": "resource/validator.js.ejs", "out": "{@backend.validators}/{Name}.validator.js" },
     { "template": "resource/test.ejs", "out": "{@backend.modules}/{kebab}/tests/{Name}.test.js", "when": "architecture != \"lightweight\" && (withTests || architecture == \"advanced\")" },
-    { "template": "resource/page-{formMode}.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/ListPage.jsx", "when": "withFrontend" },
-    { "template": "resource/page-detail.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/DetailPage.jsx", "when": "withFrontend" },
-    { "template": "resource/page-form.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/FormPage.jsx", "when": "withFrontend && formMode == \"page\"" },
-    { "template": "resource/components/table.jsx.ejs", "out": "{@frontend.components}/tables/{Name}Table.jsx", "when": "withFrontend" },
+    { "template": "resource/page-{formMode}.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/ListPage.jsx", "when": "withFrontend && crud == \"full\"" },
+    { "template": "resource/page-detail.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/DetailPage.jsx", "when": "withFrontend && crud == \"full\"" },
+    { "template": "resource/page-form.jsx.ejs", "out": "{@frontend.adminPages}/{kebab}/FormPage.jsx", "when": "withFrontend && formMode == \"page\" && crud == \"full\"" },
+    { "template": "resource/components/table.jsx.ejs", "out": "{@frontend.components}/tables/{Name}Table.jsx", "when": "withFrontend && crud == \"full\"" },
     { "template": "resource/components/form.jsx.ejs", "out": "{@frontend.components}/forms/{Name}Form.jsx", "when": "withFrontend" },
     { "template": "resource/api.js.ejs", "out": "{@frontend.api}/{kebab}.api.js", "when": "withFrontend" },
-    { "template": "resource/hooks.js.ejs", "out": "{@frontend.hooks}/use{Name}.js", "when": "withFrontend" },
+    { "template": "resource/hooks.js.ejs", "out": "{@frontend.hooks}/use{Name}.js", "when": "withFrontend && crud == \"full\"" },
     { "template": "resource/types.ts.ejs", "out": "{frontend}/src/types/{kebab}.types.ts", "when": "withFrontend && usesTypeScript" }
   ],
   "inject": [
     { "anchor": "backend.routes", "template": "snippets/route-mount.ejs" },
-    { "anchor": "frontend.lazyImports", "template": "snippets/lazy-import.ejs", "when": "withFrontend" },
-    { "anchor": "frontend.routes", "template": "snippets/route-entry.ejs", "when": "withFrontend" },
-    { "anchor": "frontend.nav", "template": "snippets/nav-entry.ejs", "when": "withFrontend" }
+    { "anchor": "frontend.lazyImports", "template": "snippets/lazy-import.ejs", "when": "withFrontend && crud == \"full\"" },
+    { "anchor": "frontend.routes", "template": "snippets/route-entry.ejs", "when": "withFrontend && crud == \"full\"" },
+    { "anchor": "frontend.nav", "template": "snippets/nav-entry.ejs", "when": "withFrontend && crud == \"full\"" }
   ],
   "requires": [
     { "scope": "backend", "package": "slugify", "version": "^1.6.6", "when": "hasField:slug || hasField:code || hasField:sku" }

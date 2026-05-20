@@ -2,6 +2,17 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.7.0] — 2026-05-20
+
+### Added
+
+- **`--crud insert-only`** — new `--crud` option on `loom generate resource` (values: `full`, `insert-only`). When set to `insert-only`, only create-related code is generated: POST route, create controller method, create service method, create-only validator schema, form component, and API client with only the `create()` call. Skips list/detail/update/delete routes, pages, table components, hooks, and nav entries.
+
+### Changed
+
+- Template conditions (`when`) in `resource.json` recipe now check `crud` param to skip frontend page files (`page-{formMode}`, `page-detail`, `page-form`, `table`, `hooks`) and frontend injections for `insert-only` mode.
+- Backend EJS templates (`routes`, `controller`, `service`, `validator`) conditionally render only create methods when `options.crud === "insert-only"`.
+
 ## [1.6.0] — 2026-05-20
 
 ### Added

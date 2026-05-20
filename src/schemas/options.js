@@ -11,6 +11,7 @@ import { parseRelationsSpec } from "../core/resource-definition.js";
 export const ARCHITECTURES = ["lightweight", "moderate", "advanced"];
 export const FORM_MODES = ["page", "modal", "sidepanel", "inline"];
 export const RECIPES = ["resource", "module", "page"];
+export const CRUD_MODES = ["full", "insert-only"];
 
 /** A reusable "must be one of" check. */
 function oneOf(value, allowed, flag) {
@@ -30,6 +31,7 @@ export function validateGenerateOptions(options = {}) {
     oneOf(options.arch, ARCHITECTURES, "--arch"),
     oneOf(options.formMode, FORM_MODES, "--form-mode"),
     oneOf(options.recipe, RECIPES, "--recipe"),
+    oneOf(options.crud, CRUD_MODES, "--crud"),
   ].filter(Boolean);
 
   if (options.fields && options.file) {

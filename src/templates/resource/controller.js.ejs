@@ -18,6 +18,7 @@ const create = async (req, res, next) => {
   }
 };
 
+<% if (options.crud !== 'insert-only') { -%>
 // ── List (paginated) ─────────────────────────────────────────────────────────
 const list = async (req, res, next) => {
   try {
@@ -78,8 +79,13 @@ const remove = async (req, res, next) => {
     return next(err);
   }
 };
+<% } -%>
 
+<% if (options.crud !== 'insert-only') { -%>
 module.exports = { create, list, getOne, update, remove };
+<% } else { -%>
+module.exports = { create };
+<% } -%>
 <% } else { -%>
 <% const _refPopulate = resource.fields.filter(function(f) { return f.type === 'ref' || f.type === 'reference'; }); -%>
 // Layered architecture — the controller is thin; domain logic lives in the service.
@@ -99,6 +105,7 @@ const create = async (req, res, next) => {
   }
 };
 
+<% if (options.crud !== 'insert-only') { -%>
 // ── List (with pagination, filtering, sorting) ───────────────────────────────
 const list = async (req, res, next) => {
   try {
@@ -152,6 +159,11 @@ const remove = async (req, res, next) => {
     return next(err);
   }
 };
+<% } -%>
 
+<% if (options.crud !== 'insert-only') { -%>
 module.exports = { create, list, getOne, update, remove };
+<% } else { -%>
+module.exports = { create };
+<% } -%>
 <% } -%>

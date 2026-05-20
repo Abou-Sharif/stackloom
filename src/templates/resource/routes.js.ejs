@@ -16,6 +16,7 @@ router.post(
   controller.create
 );
 
+<% if (options.crud !== 'insert-only') { -%>
 // ── List (query params handled in controller/service) ─────────────────────────
 router.get('/', controller.list);
 
@@ -31,5 +32,6 @@ router.put(
 
 // ── Delete ───────────────────────────────────────────────────────────────────
 router.delete('/:id', controller.remove);
+<% } -%>
 
 module.exports = router;

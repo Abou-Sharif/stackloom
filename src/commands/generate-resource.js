@@ -661,6 +661,7 @@ export default async function generateResource(type, name, options = {}) {
       withTests: Boolean(executionOptions.withTests),
       architecture: executionOptions.arch || "moderate",
       formMode: executionOptions.formMode || "page",
+      crud: executionOptions.crud || "full",
       usesTypeScript: blueprint.usesTypeScript(projectRoot),
     };
     for (const field of resource.fields)
