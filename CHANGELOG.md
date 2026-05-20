@@ -2,7 +2,7 @@
 
 All notable changes to the CLI will be documented in this file.
 
-## [1.5.0] — 2026-05-19
+## [1.6.0] — 2026-05-20
 
 ### Added
 
