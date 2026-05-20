@@ -18,7 +18,7 @@ export default async function finalizeCmd() {
   // 1. Linting
   spinner.start('Running linting checks...');
   try {
-    execSync('pnpm lint', { cwd: projectRoot, stdio: 'pipe' });
+    execSync('pnpm lint', { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('Linting passed');
   } catch {
     spinner.fail('Linting failed. Please fix errors before finalizing.');
@@ -28,8 +28,8 @@ export default async function finalizeCmd() {
   // 2. Type Checking
   spinner.start('Running type checks...');
   try {
-    execSync('pnpm -C backend exec tsc --noEmit', { cwd: projectRoot, stdio: 'pipe' });
-    execSync('pnpm -C frontend exec tsc --noEmit', { cwd: projectRoot, stdio: 'pipe' });
+    execSync('pnpm -C backend exec tsc --noEmit', { shell: true, cwd: projectRoot, stdio: 'pipe' });
+    execSync('pnpm -C frontend exec tsc --noEmit', { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('Type checks passed');
   } catch {
     spinner.warn('Type checks failed or tsc not found. Skipping.');
@@ -38,7 +38,7 @@ export default async function finalizeCmd() {
   // 3. Tests
   spinner.start('Running all tests...');
   try {
-    execSync('pnpm test', { cwd: projectRoot, stdio: 'pipe' });
+    execSync('pnpm test', { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('All tests passed');
   } catch {
     spinner.fail('Tests failed. Please fix before production.');
@@ -48,7 +48,7 @@ export default async function finalizeCmd() {
   // 4. Build
   spinner.start('Building for production...');
   try {
-    execSync('pnpm build', { cwd: projectRoot, stdio: 'pipe' });
+    execSync('pnpm build', { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('Production build successful');
   } catch {
     spinner.fail('Build failed.');
@@ -58,7 +58,7 @@ export default async function finalizeCmd() {
   // 5. Security Audit
   spinner.start('Running security audit...');
   try {
-    execSync('npm audit', { cwd: projectRoot, stdio: 'pipe' });
+    execSync('npm audit', { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('Security audit passed');
   } catch {
     spinner.warn('Security vulnerabilities detected. Run `npm audit fix`.');

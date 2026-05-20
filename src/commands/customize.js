@@ -281,6 +281,7 @@ export async function customizeThemePresetApply(code, options) {
 
     // Init shadcn with Vite template to create components.json + CSS scaffold
     execSync("npx shadcn@latest init --template vite --yes --defaults", {
+      shell: true,
       cwd: tmpDir,
       stdio: "pipe",
       timeout: 120_000,
@@ -288,6 +289,7 @@ export async function customizeThemePresetApply(code, options) {
 
     // Apply the preset — this rewrites CSS variables in src/index.css
     execSync(`npx shadcn@latest init --preset ${code} --force --yes --no-reinstall`, {
+      shell: true,
       cwd: tmpDir,
       stdio: "pipe",
       timeout: 120_000,

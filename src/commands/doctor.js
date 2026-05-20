@@ -31,7 +31,7 @@ export default async function doctorCmd() {
 
   spinner.start('Checking pnpm...');
   try {
-    const pnpmVersion = execSync('pnpm -v').toString().trim();
+    const pnpmVersion = execSync('pnpm -v', { shell: true }).toString().trim();
     spinner.succeed(`pnpm ${pnpmVersion} detected`);
   } catch {
     spinner.warn('pnpm not found. It is recommended for this starter kit.');

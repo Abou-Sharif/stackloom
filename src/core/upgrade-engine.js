@@ -1,4 +1,5 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import fs from "fs-extra";
 import os from "node:os";
 import { createGunzip } from "node:zlib";
@@ -98,6 +99,7 @@ function isProjectSpecificFile(relPath) {
 }
 
 function classifyFile(relPath) {
+  relPath = relPath.replace(/\\/g, "/");
   if (isGeneratedFile(relPath) && !isBuiltinModule(relPath)) return "generated";
   if (isProjectSpecificFile(relPath)) return "skip";
   if (isContractFile(relPath)) return "contract";
@@ -171,7 +173,7 @@ async function downloadTemplate(url, destDir, redirectsLeft = 5) {
 
 function resolveTemplateSource(reporter) {
   const cfgPath = path.join(
-    path.dirname(new URL(import.meta.url).pathname),
+    path.dirname(fileURLToPath(import.meta.url)),
     "..", "..", "config", "templates.json",
   );
   let config = null;
@@ -210,10 +212,13 @@ function resolveTemplateSource(reporter) {
 function listFilesRecursive(dir, prefix = "") {
   const entries = [];
   if (!fs.existsSync(dir)) return entries;
+
+  // Normalise separators so path prefix checks work cross-platform
+  const norm = (p) => p.replace(/\\/g, "/");
   for (const name of fs.readdirSync(dir)) {
     if (IGNORED_DIRS.has(name)) continue;
     const abs = path.join(dir, name);
-    const rel = prefix ? `${prefix}/${name}` : name;
+    const rel = prefix ? `${norm(prefix)}/${norm(name)}` : norm(name);
     try {
       const stat = fs.lstatSync(abs);
       if (stat.isSymbolicLink()) continue;

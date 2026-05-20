@@ -44,6 +44,7 @@ import addFieldCmd from "../src/commands/add-field.js";
 import explainCmd from "../src/commands/explain.js";
 import forgeCmd from "../src/commands/forge.js";
 import addReportCmd from "../src/commands/add-report.js";
+import { completion } from "../src/utils/completion.js";
 import scaffoldCmd from "../src/commands/scaffold.js";
 
 program
@@ -579,5 +580,14 @@ program
   .option("--display-name <name>", "Human-readable display name")
   .option("--description <text>", "CLI description shown in help")
   .action(rename);
+
+// Completion: generate shell completion scripts
+program
+  .command("completion [shell]")
+  .description("Generate shell completion script (bash|zsh)")
+  .action((shell) => {
+    const s = shell || "bash";
+    console.log(completion(s));
+  });
 
 program.parse();

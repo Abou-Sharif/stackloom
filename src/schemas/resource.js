@@ -15,6 +15,7 @@ import {
   enumOf,
   any,
 } from "../blueprint/schema-kit.js";
+import { suggestFieldType, didYouMean } from "../utils/suggest.js";
 
 /** Field types the generator understands (kept in sync with resource-definition.js). */
 export const FIELD_TYPES = [
@@ -93,6 +94,21 @@ export function validateResourceDefinition(raw) {
 
   const issues = [];
   const { name, fields } = parsed.data;
+
+  // Annotate unknown field types with "did you mean?" suggestions
+  if (!parsed.success && parsed.error?.issues) {
+    for (const issue of parsed.error.issues) {
+      if (issue.message && issue.message.includes("must be one of")) {
+        const raw = issue.path?.length >= 2 ? issue.path[1] : null;
+        if (raw && typeof raw === "string") {
+          const sug = suggestFieldType(raw);
+          if (sug) {
+            console.warn(didYouMean(raw, sug));
+          }
+        }
+      }
+    }
+  }
 
   if (!PASCAL_CASE.test(name)) {
     issues.push(`name: "${name}" must be PascalCase (start uppercase, alphanumeric)`);

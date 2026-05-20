@@ -569,6 +569,7 @@ export default async function initCmd(projectName, options) {
       log(chalk.cyan(`\n━> Installing dependencies in ${sub}...`));
       try {
         execSync("pnpm install --no-frozen-lockfile", {
+          shell: true,
           cwd: subPath,
           stdio: quiet ? "pipe" : "inherit",
           env: { ...process.env, CI: "true" },

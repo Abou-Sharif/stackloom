@@ -38,9 +38,12 @@ export class Logger {
   }
 
   static clearProgress() {
-    // Clear progress line
-    process.stdout.clearLine();
-    process.stdout.cursorTo(0);
+    try {
+      if (typeof process.stdout.clearLine === 'function') process.stdout.clearLine();
+      if (typeof process.stdout.cursorTo === 'function') process.stdout.cursorTo(0);
+    } catch {
+      // Legacy Windows cmd.exe and some CI environments lack these methods
+    }
   }
 }
 
