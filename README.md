@@ -44,16 +44,28 @@ not an engine change.
 | `loom init [name]` / `loom new [name]` | Create a new project from the starter template                        |
 | `loom generate resource <Name>`        | Unified, engine-backed generator for full-stack CRUD                  |
 | `loom resource sync <Name>`            | Amend an existing resource (alias for `generate resource --amend`)    |
+| `loom resource add-field <Name>`       | Add a single field to an existing resource (via amend pipeline)       |
 | `loom generate module <Name>`          | Backend-only module generation                                        |
 | `loom generate page <Name>`            | Frontend page generation with route and nav entry                     |
 | `loom generate theme`                  | Import a shadcn theme                                                 |
 | `loom generate deploy`                 | Generate deployment configuration for Docker, Vercel, Railway         |
 | `loom check`                           | Verify project health: blueprint validity, anchor integrity, env file |
 | `loom upgrade`                         | Check compatibility; add `--write` to apply safe upgrade migrations   |
+| `loom upgrade --dry-run` / `--force`   | Preview or force-overwrite during upgrade                             |
+| `loom backup list`                     | List available upgrade backups                                        |
+| `loom backup restore <id>`             | Restore project from an upgrade backup                                |
 | `loom env [--sync]`                    | Compare `.env` to `.env.example`; `--sync` appends missing keys       |
 | `loom rename <name>`                   | Rebrand the CLI itself (bin name, help text, output)                  |
 | `loom cleanup [preset]`                | Clean or de-brand the project (`minimal`, `production`, `template`)   |
-| `loom customize`                       | Theme, layout, brand, data-display customization                      |
+| `loom customize theme set <name>`      | Switch color palette, radius, shadows (8 themes)                      |
+| `loom customize theme import`          | Import a shadcn CSS theme — auto-applied                              |
+| `loom customize layout set <name>`     | Switch app shell (4 layouts)                                          |
+| `loom customize brand set`             | Update brand name/tagline                                             |
+| `loom customize data set <name>`       | Switch data display template (4 templates)                            |
+| `loom customize ui set <name>`         | Switch card, modal, select, pagination styles (5 variants)            |
+| `loom customize font set [name]`       | Set body and heading fonts (Google Fonts auto-import)                 |
+| `loom customize css`                   | Inject custom CSS rules                                               |
+| `loom customize list-*`                | List available themes, layouts, data, UI, fonts                       |
 | `loom wizard`                          | Interactive guided project setup                                      |
 | `loom doctor`                          | Environment and project health check                                  |
 | `loom rollback`                        | Undo the last generation action                                       |

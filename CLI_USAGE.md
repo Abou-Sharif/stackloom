@@ -41,11 +41,11 @@ cd my-app && pnpm install && pnpm dev
 
 ### `loom init` options
 
-| Flag                      | Available values                                                                   | What it does                                                              |
-| ------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `--preset <variant>`      | `saas`, `clinic`, `studio`, `operations`, `commerce`, `custom`                     | Select a starter preset shape                                             |
-| `--theme <theme>`         | `executiveBlue`, `clinicSoft`, `studioElevated`, `operationsDense`, `commerceWarm` | Choose the UI theme palette                                               |
-| `--layout <layout>`       | `hybridSaas`, `sidebarWorkspace`, `topbarPortal`, `rightRailStudio`                | Choose the app shell layout                                               |
+| Flag                      | Available values                                                                                                                | What it does                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `--preset <variant>`      | `saas`, `clinic`, `studio`, `operations`, `commerce`, `custom`                                                                  | Select a starter preset shape                                             |
+| `--theme <theme>`         | `executiveBlue`, `clinicSoft`, `studioElevated`, `operationsDense`, `commerceWarm`, `violetSanctum`, `tealFlow`, `warmNeutral`  | Choose the UI theme palette (8 built-in)                                 |
+| `--layout <layout>`       | `hybridSaas`, `sidebarWorkspace`, `topbarPortal`, `rightRailStudio`                                                             | Choose the app shell layout                                               |
 | `--brand-name <name>`     | any text                                                                           | Set the brand name used in README/brand files                             |
 | `--tagline <text>`        | any text                                                                           | Set the slogan/tagline used in the project                                |
 | `--extra-modules <list>`  | `users,products,...`                                                               | Include additional backend modules in the starter app                     |
@@ -183,25 +183,66 @@ loom remove page reports --force
 | `loom remove page <name>`   | Remove a generated frontend page and nav entry           |
 | `--force`                   | Skip the confirmation prompt                             |
 
+## Add a field to an existing resource
+
+```bash
+loom resource add-field Product "sku:string:required"            # inline field spec
+loom resource add-field Product --interactive                    # interactive prompt
+```
+
+Delegates to the amend pipeline — preserves custom code zones and `AUTO-GENERATED` markers. Supports `--force` to overwrite unmarked files.
+
+## Upgrade with safe code preservation
+
+```bash
+loom upgrade                           # read-only compatibility check
+loom upgrade --dry-run                 # preview upgrade changes
+loom upgrade --write                   # apply safe migrations
+loom upgrade --write --force           # overwrite files without markers
+```
+
+The upgrade engine uses a two-tier preservation strategy:
+- Files with `AUTO-GENERATED` markers: only the marked block is replaced, custom code outside stays.
+- Files without markers: backed up as `.upgrade-new` sidecars instead of overwriting.
+- `--force`: overwrite everything, skip preservation.
+
+## Manage upgrade backups
+
+```bash
+loom backup list                       # list all upgrade backups
+loom backup restore <id>               # restore project from a backup
+```
+
+Backups are stored in `.loom/upgrade-backups/` with unique suffixes. Supports `--quiet`, `--json`, and `--no-color` global flags.
+
 ## Customize design and branding
 
 ```bash
-loom customize theme list-themes
-loom customize layout list-layouts
-loom customize data list-data
-loom customize ui list-ui
-loom customize ui set studio
-loom customize brand set --name "Acme" --tagline "Ship faster"
+loom customize theme set violetSanctum           # switch to purple theme
+loom customize theme list-themes                 # list all 8 built-in themes
+loom customize theme import --file ./theme.css   # import shadcn CSS (auto-applied)
+loom customize layout set sidebarWorkspace       # switch layout
+loom customize data set denseOps                 # switch data display
+loom customize ui set studio                     # switch UI variant
+loom customize brand set --name "Acme"           # update brand name
+loom customize font set                          # interactive font selection
+loom customize font set inter --heading playfair # body + heading fonts
+loom customize font list                         # list available font presets
+loom customize css --file ./custom.css           # inject custom CSS rules
+loom customize css --css "body { ... }"          # inline CSS string
 ```
 
-| Command                                               | What it does                                    |
-| ----------------------------------------------------- | ----------------------------------------------- |
-| `loom customize theme`                                | Theme operations and imports                    |
-| `loom customize layout`                               | Layout shell operations                         |
-| `loom customize brand`                                | Brand name / tagline / description operations   |
-| `loom customize data`                                 | Data display template operations                |
-| `loom customize ui`                                   | Card, modal, select, pagination variant presets |
-| `list-themes`, `list-layouts`, `list-data`, `list-ui` | Show available built-in options                 |
+| Command                                                    | What it does                                              |
+| ---------------------------------------------------------- | --------------------------------------------------------- |
+| `loom customize theme set <name>`                          | Switch color palette, radius, shadows (8 themes)          |
+| `loom customize theme import --file <path> / --paste <css>` | Import a shadcn CSS theme — saved and auto-applied       |
+| `loom customize layout set <name>`                         | Switch app shell (4 layouts)                              |
+| `loom customize brand set --name / --tagline`              | Update brand name/tagline                                 |
+| `loom customize data set <name>`                           | Switch data display template (4 templates)                |
+| `loom customize ui set <name>`                             | Switch card, modal, select, pagination styles (5 variants)|
+| `loom customize font set [name]`                           | Set body + heading fonts (Google Fonts auto-import)       |
+| `loom customize css --file / --css`                        | Inject custom CSS (appended to custom.css)                |
+| `list-themes`, `list-layouts`, `list-data`, `list-ui`, `list-fonts` | Show available built-in options               |
 
 ## Env / project maintenance
 

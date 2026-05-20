@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,18 +22,52 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// NOTE: the EJS loop variable is `f` (the resource field definition); the
-// react-hook-form render prop is `field` (the runtime form field). Keeping them
-// distinct avoids the shadowing bug where `f.type` checks silently read the RHF
-// object instead of the field definition.
-export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel, isLoading }) => {
+<% function zodType(f) {
+  switch (f.type) {
+    case 'number': case 'range': {
+      let s = 'z.number()';
+      if (f.validation.min !== undefined) s += `.min(${f.validation.min})`;
+      if (f.validation.max !== undefined) s += `.max(${f.validation.max})`;
+      return s;
+    }
+    case 'boolean': return 'z.boolean()';
+    case 'email': return 'z.string().email("Invalid email address")';
+    case 'url': return 'z.string().url("Invalid URL")';
+    case 'password': return 'z.string().min(8, "Min 8 characters")';
+    case 'tel': return 'z.string().regex(/^[+]?[1-9]\\d{1,14}$/, "Invalid phone")';
+    default: {
+      let s = 'z.string()';
+      if (f.validation.minLength !== undefined) s += `.min(${f.validation.minLength}, "Min ${f.validation.minLength} characters")`;
+      if (f.validation.maxLength !== undefined) s += `.max(${f.validation.maxLength}, "Max ${f.validation.maxLength} characters")`;
+      if (f.validation.pattern) s += `.regex(${f.validation.pattern}, "Invalid format")`;
+      return s;
+    }
+  }
+} %>
+
+export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel, isLoading, serverErrors }) => {
+  const formSchema = z.object({
+<% resource.fields.forEach(function(f) { -%>
+    <%- f.name %>: <%- f.validation.required ? zodType(f) : `${zodType(f)}.optional()` %>,
+<% }); -%>
+  });
+
   const form = useForm({
+    resolver: zodResolver(formSchema),
     defaultValues: initialData || {
 <% resource.fields.forEach(function(f) { -%>
-      <%- f.name %>: <%- f.type === 'boolean' ? 'false' : f.type === 'number' ? '0' : "''" %>,
+      <%- f.name %>: <%- f.type === 'boolean' ? 'false' : f.type === 'number' || f.type === 'range' ? '0' : "''" %>,
 <% }); -%>
     },
   });
+
+  useEffect(() => {
+    if (serverErrors && Object.keys(serverErrors).length > 0) {
+      Object.entries(serverErrors).forEach(([field, message]) => {
+        form.setError(field, { type: "server", message });
+      });
+    }
+  }, [serverErrors]);
 
   return (
     <Form {...form}>
@@ -45,7 +81,7 @@ export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel
               <FormLabel><%- f.name.charAt(0).toUpperCase() + f.name.slice(1) %></FormLabel>
               <FormControl>
 <% if (f.type === 'boolean') { -%>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
 <% } else if ((f.type === 'select' || f.type === 'multiselect') && f.special && f.special.options) { -%>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <SelectTrigger>
@@ -86,7 +122,7 @@ export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel
             </Button>
           )}
           <Button type="submit" disabled={isLoading}>
-            {initialData ? 'Update' : 'Create'} <%= resource.name %>
+            {isLoading ? "Saving..." : initialData ? 'Update' : 'Create'} <%= resource.name %>
           </Button>
         </div>
       </form>

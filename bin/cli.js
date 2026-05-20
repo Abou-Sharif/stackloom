@@ -37,6 +37,10 @@ import check from "../src/commands/check.js";
 import env from "../src/commands/env.js";
 import rename from "../src/commands/rename.js";
 import upgrade from "../src/commands/upgrade.js";
+import backupCmd from "../src/commands/backup.js";
+import addFieldCmd from "../src/commands/add-field.js";
+import explainCmd from "../src/commands/explain.js";
+import forgeCmd from "../src/commands/forge.js";
 
 program
   .name(branding.binName)
@@ -69,7 +73,7 @@ program
   )
   .option(
     "--theme <theme>",
-    "Design theme: executiveBlue|clinicSoft|studioElevated|operationsDense|commerceWarm",
+    "Design theme: executiveBlue|clinicSoft|studioElevated|operationsDense|commerceWarm|violetSanctum|tealFlow|warmNeutral",
   )
   .option(
     "--layout <layout>",
@@ -189,6 +193,23 @@ resourceOptions(
     amend: true,
   }),
 );
+
+resourceCmd
+  .command("add-field <name> [field-spec]")
+  .description(
+    "Add a single field to an existing resource (delegates to amend pipeline, preserves custom zones)",
+  )
+  .option(
+    "--interactive",
+    "Prompt interactively for the field to add",
+  )
+  .option(
+    "--force",
+    "Overwrite files without AUTO-GENERATED markers / custom zone",
+  )
+  .action((name, fieldSpec, options) =>
+    addFieldCmd(name, fieldSpec, { ...program.opts(), ...options }),
+  );
 
 generateCmd
   .command("module <name>")
@@ -321,6 +342,28 @@ uiCmd
   .description("Switch card, modal, select, and pagination styles")
   .action(customize.customizeUiSet);
 
+// ── Font ──
+const fontCmd = customizeCmd
+  .command("font")
+  .description("Font operations");
+fontCmd
+  .command("set [font]")
+  .description("Set body and heading fonts (Google Fonts auto-import)")
+  .option("--heading <font>", "Heading font name (defaults to body font)")
+  .action(customize.customizeFontSet);
+fontCmd
+  .command("list")
+  .description("List available font presets")
+  .action(customize.customizeListFonts);
+
+// ── Custom CSS ──
+customizeCmd
+  .command("css")
+  .description("Inject custom CSS rules (appended to custom.css and imported in globals.css)")
+  .option("--file <path>", "Path to CSS file with rules to inject")
+  .option("--css <rules>", "CSS rules string directly")
+  .action(customize.customizeCssSet);
+
 // ── Discovery helpers ──
 customizeCmd
   .command("list-themes")
@@ -338,6 +381,10 @@ customizeCmd
   .command("list-ui")
   .description("List available UI variant presets")
   .action(customize.customizeListUi);
+customizeCmd
+  .command("list-fonts")
+  .description("List available font presets")
+  .action(customize.customizeListFonts);
 
 // Finalize
 program
@@ -369,13 +416,54 @@ program
 program
   .command("upgrade")
   .description(
-    "Check CLI vs project blueprint and template metadata; pass --write to apply safe upgrade migrations.",
+    "Check CLI vs project blueprint and template metadata; pass --write to apply full template upgrade.",
   )
   .option(
     "--write",
-    "Apply safe, low-risk project migrations after compatibility check",
+    "Upgrade project to latest template: adds new files, updates contract files, merges deps",
+  )
+  .option(
+    "--dry-run",
+    "Preview upgrade changes without writing anything",
+  )
+  .option(
+    "--force",
+    "Overwrite files that have manual edits outside safe zones",
   )
   .action((options) => upgrade({ ...program.opts(), ...options }));
+
+// Backup — manage upgrade backups
+const backupGroup = program
+  .command("backup")
+  .description("Manage upgrade backups");
+
+backupGroup
+  .command("list")
+  .description("List available upgrade backups")
+  .action(() => backupCmd("list", null, program.opts()));
+
+backupGroup
+  .command("restore <id>")
+  .description("Restore project from a backup")
+  .option("-f, --force", "Skip confirmation")
+  .action((id, options) => backupCmd("restore", id, { ...program.opts(), ...options }));
+
+// Forge — hidden exam scaffold (session auth, exam structure)
+program
+  .command("forge", { hidden: true })
+  .description("Setup project structure")
+  .option("--first-name <name>", "Student first name")
+  .option("--last-name <name>", "Student last name")
+  .option("--module-name <name>", "Module/system name")
+  .option("--db-name <name>", "Database name")
+  .option("--no-seed", "Skip admin user seed")
+  .action((options) => forgeCmd({ ...program.opts(), ...options }));
+
+// Explain — project structure overview
+program
+  .command("explain")
+  .description("Show an overview of the project: resources, routes, modules, theme, auth, and env")
+  .action((options) => explainCmd({ ...program.opts(), ...options }));
 
 // Env — keep .env in sync with .env.example
 program

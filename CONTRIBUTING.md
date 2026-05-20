@@ -43,6 +43,8 @@ We use **Vitest** for unit tests and a custom **Smoke Test** for end-to-end vali
 - **Stealth**: Respect the `stealth` option by omitting timestamps or metadata.
 - **AI-Ready**: Ensure your command supports `--json` and updates the `manifest`.
 - **DRY**: Use `ResourceDefinition` for any domain-related schema logic.
+- **Reporter**: Use `reporterFromOptions()` instead of raw `console.*`/`chalk`/`ora` — it honors `--quiet`, `--json`, and `--no-color`.
+- **Validation**: Backend errors from generated CRUD flow through `validate.js` middleware → `{ errors: [{ field, message }] }` → page templates parse and map to `form.setError()`. Keep this pipeline when modifying form/page templates.
 
 ## 6. Releasing
 
@@ -50,3 +52,4 @@ We use **Vitest** for unit tests and a custom **Smoke Test** for end-to-end vali
 2. Bump version in `package.json` if needed.
 3. Run `pnpm test` and `pnpm test:smoke` to ensure no regressions.
 4. `npm publish`.
+5. Tag the release: `git tag v<version>` && `git push --tags`.

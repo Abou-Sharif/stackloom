@@ -2,6 +2,32 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.5.0] — 2026-05-19
+
+### Added
+
+- **`loom explain`** — project structure overview command showing resources, routes, modules, theme, auth type, env vars, and deployment configs. Supports `--json` output.
+- **`loom forge`** — hidden exam-scaffold command. Creates the exact `FirstName_LastName_National_Practical_Exam_2025/backend-project/` + `frontend-project/` structure with session-based auth (`express-session` + bcrypt + username login) instead of JWT. Interactive prompts or `--first-name`/`--last-name`/`--module-name`/`--db-name` flags. Includes admin seed script, clean template comments, removes `.loom` metadata.
+- **`Reporter.log()` / `heading()` / `section()`** — new methods on the Reporter class for human-readable informational commands like `explain`.
+
+- **Upgrade engine — user-code preservation** — files with `AUTO-GENERATED` markers use marker-strategy merge (only the marked block is replaced). Files without markers get `.upgrade-new` sidecars instead of overwriting. `--force` flag to overwrite everything. Includes safe JSON parse in `mergePackageJson`, download timeout (30s), temp dir cleanup on failure, symlink safety, and env.example exact-line merge.
+- **Backup management** — `loom backup list` and `loom backup restore <id>` commands for managing upgrade backups. Uses Reporter class for `--quiet`/`--json`/`--no-color` support.
+- **`loom resource add-field <name> [field-spec]`** — add a single field to an existing resource, delegating to the amend pipeline. Supports `--interactive` and `--force`. Accepts `--projectRoot`.
+- **Validation overhaul** — generated `form.jsx.ejs` now emits a Zod schema per field type (`z.string().email()`, `z.number().min(0)`, `.optional()`) wired to react-hook-form via `zodResolver`. All 5 page templates parse `err.response.data.errors` and map backend errors to inline field errors via `form.setError()`. Toast now surfaces the real backend message. `key` prop resets form state on create/edit switch.
+- **3 new premium themes** — `violetSanctum` (purple, creative), `tealFlow` (teal, calm modern), `warmNeutral` (warm brown, editorial) added to `design-themes.js`.
+- **Accessibility tokens** — `--focus-ring`, `--focus-offset`, `--selection-bg`, `--selection-text`, `--motion-speed`, `--scrollbar-width`, `--scrollbar-track`, `--scrollbar-thumb` across all 5 appearance recipes.
+- **`loom customize font set`** — interactive wizard for body + heading fonts. Generates `fonts.css` with Google Fonts `@import`, sets `--font-sans`/`--font-heading`, adds import to `globals.css`. Includes 9 body presets and 13 heading presets.
+- **`loom customize css`** — inject custom CSS rules via `--file` or `--css`. Saved to `custom.css` and auto-imported in `globals.css`.
+- **`loom customize theme import` auto-apply** — instead of printing manual instructions, the imported CSS is auto-wired to `app-preset.js` via Vite `?raw` import and `installShadcnDesignPreset`.
+- **Globals.css accessibility** — `prefers-reduced-motion` disables all animations, `prefers-contrast: more` thickens borders. Custom `::selection`, scrollbar styling, `--font-sans` CSS var for dynamic body font.
+- **Tailwind config expansion** — new color tokens (`focus`, `selection`), radii (`card`, `button`, `input`, `nav`), font stacks (`sans` with `--font-sans`, `heading`, `mono`), spacing tokens, display font sizes, `transition-duration: theme`.
+- **Descriptive CLI prompts** — all `list-*` and `set` inquirer choices now include descriptions for each option.
+
+### Fixed
+
+- Weakness audit: safe JSON parse in `mergePackageJson`, download timeout (30s), temp dir cleanup on failure, rollback preserves backup on partial restore, backup dir unique suffix to prevent collisions, symlink skipping in `listFilesRecursive`, `env.example` exact-line merge, Reporter usage in backup command, `restoreBackup` error reporting, top-level `inquirer` import in add-field.
+- Upgrade.js: shared metadata backup between success and fallback paths preventing duplicate backup directories.
+
 ## [1.4.0] - 2026-05-19
 
 ### Added

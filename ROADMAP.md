@@ -11,6 +11,18 @@ This file tracks larger capabilities discussed for **solo devs first**, without 
 - **Virtual hasMany:** `--relations "virtual:hasMany:ChildModel:foreignKey"` and `relations.hasMany` in definition files; interactive wizard prompts.
 - **Stricter field specs:** invalid `--fields` segments fail with a clear error (no silent drop).
 - **Generation report:** `loom generate resource` prints a **change-set** line (`new` vs `updated` file counts) after the file list.
+- **Validation overhaul:** Zod schemas in generated forms, backend error mapping to inline field errors via `form.setError()`.
+- **Upgrade engine — user-code preservation:** marker-strategy merge for `AUTO-GENERATED` files, `.upgrade-new` sidecars for unmarked files, `--force` override. Includes backup/restore commands.
+- **`loom resource add-field`:** single-field amend via the pipeline. Interactive or inline field spec.
+- **`loom customize font set`:** interactive Google Fonts body + heading selection with auto-generated `fonts.css` and `--font-sans`/`--font-heading` CSS vars.
+- **`loom customize css`:** inject custom CSS via `--file` or `--css`, saved to `custom.css` and auto-imported in `globals.css`.
+- **`loom customize theme import` auto-apply:** uses Vite `?raw` import to embed imported CSS at build time — no manual `app-preset.js` edits.
+- **3 new premium themes:** `violetSanctum` (purple), `tealFlow` (teal), `warmNeutral` (warm brown).
+- **Accessibility tokens:** focus-ring, focus-offset, selection, scrollbar, motion-speed CSS vars across all 5 appearance recipes.
+- **Globals.css overhaul:** full `prefers-reduced-motion`, `prefers-contrast`, `::selection`, custom scrollbar, `--font-sans` CSS var.
+- **Descriptive CLI prompts:** all `list-*` / `set` inquirer choices now show option descriptions.
+- **Tailwind config expansion:** heading/mono font stacks, card/button/input/nav radii, spacing tokens, display font sizes, theme-aware transition duration.
+- **Weakness audit:** safe JSON parse, download timeout, temp dir cleanup, rollback backup preservation, backup dir unique suffix, symlink safety, env.example merge, Reporter usage, top-level inquirer import.
 
 ## Next: schema evolution (add / remove fields)
 
@@ -29,8 +41,8 @@ This file tracks larger capabilities discussed for **solo devs first**, without 
 
 ## Next: customization & unique design
 
-- **Project design tokens:** merge `loom customize` with a single `design.tokens.json` (spacing, radius, font stacks) consumed by the template and document override order: `.loom/templates` → `~/.loom/templates` → built-ins (already partially documented in README).
-- **Optional UI packs:** “dense”, “marketing”, “dashboard” component density presets (Tailwind class strategies), not only colour themes.
+- **Project design tokens config:** merge `loom customize` with a single `design.tokens.json` (spacing, radius, font stacks) consumed by the template; document override order: `.loom/templates` → `~/.loom/templates` → built-ins.
+- **Optional UI density packs:** "dense", "marketing", "dashboard" component presets (Tailwind class strategies), not only colour themes.
 
 ## Next: errors & edge cases
 

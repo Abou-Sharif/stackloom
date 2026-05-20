@@ -1,8 +1,15 @@
 /**
  * `loom upgrade` — compare this CLI to the project's blueprint + template metadata.
  *
- * `--write` enables safe, low-risk migrations for older scaffolded projects.
- * Only non-destructive compatibility metadata updates are applied.
+ * `--write` upgrades your project to match the latest template:
+ *   - Adds new files the template ships but your project is missing
+ *   - Updates contract, scaffold, and config files to the latest template version
+ *   - Merges package.json dependencies (adds missing deps, never removes existing)
+ *   - Refreshes .loom/metadata.json compatibility marker
+ *   - Skips generated resource files (managed via `loom resource sync`)
+ *   - Creates a backup under `.loom/upgrade-backup-*` for rollback
+ *
+ * `--dry-run` previews changes without touching anything.
  */
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
@@ -15,6 +22,7 @@ import {
   metadataCompatSatisfied,
   parseMetadataCompat,
 } from "../utils/semver.js";
+import { UpgradeEngine } from "../core/upgrade-engine.js";
 
 function readCliPackage() {
   return JSON.parse(
@@ -82,25 +90,75 @@ async function refreshMetadata(projectRoot, reporter, cliPkg, cliVersion) {
   return null;
 }
 
-async function applySafeProjectMigrations(
+async function applyFullUpgrade(
   projectRoot,
   reporter,
   cliPkg,
   cliVersion,
+  { dryRun = false, force = false, templateDir = null } = {},
 ) {
   const migratedFiles = [];
-  const metadataPath = path.join(projectRoot, ".loom", "metadata.json");
+  let engine;
+  let metadataBackupDir = null;
 
-  await createBackup(projectRoot, reporter, [metadataPath]);
-  const refreshed = await refreshMetadata(
-    projectRoot,
-    reporter,
-    cliPkg,
-    cliVersion,
-  );
-  if (refreshed) migratedFiles.push(refreshed);
+  // Create metadata backup up-front so it's shared between full upgrade
+  // and fallback path — avoids two backup dirs in rapid succession.
+  if (!dryRun) {
+    metadataBackupDir = await createBackup(projectRoot, reporter, [
+      path.join(projectRoot, ".loom", "metadata.json"),
+    ]);
+  }
 
-  return migratedFiles;
+  try {
+    engine = new UpgradeEngine({ projectRoot, reporter, dryRun, force, templateDir });
+    const { newFiles, changedFiles, deletedFiles } = await engine.analyze();
+
+    const totals = {
+      new: newFiles.length,
+      changed: changedFiles.length,
+      deleted: deletedFiles.length,
+    };
+    const total = totals.new + totals.changed;
+
+    if (total === 0) {
+      reporter.info("Project is already up-to-date with the latest template.");
+      await engine.cleanup();
+      return { migratedFiles, fileTotals: totals };
+    }
+
+    reporter.step(
+      `Upgrade plan: ${totals.new} new, ${totals.changed} updated, ${totals.deleted} removed`,
+    );
+
+    const changes = await engine.apply({ newFiles, changedFiles, deletedFiles });
+
+    for (const c of changes) {
+      migratedFiles.push(c.rel);
+    }
+
+    if (!dryRun) {
+      const refreshed = await refreshMetadata(projectRoot, reporter, cliPkg, cliVersion);
+      if (refreshed) migratedFiles.push(refreshed);
+    }
+
+    await engine.cleanup();
+    return { migratedFiles, fileTotals: totals, changes };
+  } catch (err) {
+    if (engine) await engine.cleanup();
+    reporter.warn(`Template upgrade skipped: ${err.message}`);
+    reporter.step("Falling back to safe metadata migration only");
+
+    if (!dryRun && metadataBackupDir) {
+      // metadata backup was already made above; just refresh metadata
+      const refreshed = await refreshMetadata(projectRoot, reporter, cliPkg, cliVersion);
+      if (refreshed) migratedFiles.push(refreshed);
+    } else if (!dryRun) {
+      const refreshed = await refreshMetadata(projectRoot, reporter, cliPkg, cliVersion);
+      if (refreshed) migratedFiles.push(refreshed);
+    }
+
+    return { migratedFiles, fileTotals: { new: 0, changed: 0, deleted: 0 } };
+  }
 }
 
 function looksLikeStackloomProject(root) {
@@ -213,10 +271,6 @@ export default async function upgrade(options = {}) {
       if (meta.stack) reporter.info(`Template stack: ${meta.stack}`);
     }
 
-    reporter.step(
-      "Schema migrations and `generate --amend` are planned — see stackloom ROADMAP.md.",
-    );
-
     const ok = errors === 0;
     if (ok && warnings === 0) reporter.success("Compatibility check passed");
     else if (ok)
@@ -226,19 +280,25 @@ export default async function upgrade(options = {}) {
 
     migrationsApplied = [];
     if (ok && write) {
-      reporter.step("Applying safe upgrade migrations");
-      migrationsApplied = await applySafeProjectMigrations(
+      reporter.step("Applying full upgrade from latest template");
+      const { migratedFiles, fileTotals } = await applyFullUpgrade(
         projectRoot,
         reporter,
         cliPkg,
         cliVersion,
+        {
+          dryRun: Boolean(options.dryRun),
+          force: Boolean(options.force),
+          templateDir: options.templateDir || null,
+        },
       );
-      if (migrationsApplied.length) {
+      migrationsApplied = migratedFiles;
+      if (migratedFiles.length) {
         reporter.success(
-          `Applied ${migrationsApplied.length} safe project migration(s).`,
+          `Upgrade applied: ${fileTotals.new} new, ${fileTotals.changed} updated — ${migratedFiles.length} file(s) changed.`,
         );
       } else {
-        reporter.info("No safe migration changes were necessary.");
+        reporter.info("No upgrade changes were necessary.");
       }
     }
 

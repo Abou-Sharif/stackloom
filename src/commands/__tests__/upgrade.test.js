@@ -9,6 +9,30 @@ import { blueprintLoader } from "../../blueprint/index.js";
 const tmp = (label) =>
   path.join(os.tmpdir(), `${label}-${Math.random().toString(36).slice(2)}`);
 
+function createMinimalTemplate(dir) {
+  mkdirSync(path.join(dir, ".loom"), { recursive: true });
+  writeFileSync(path.join(dir, ".loom", "blueprint.json"), JSON.stringify({
+    schemaVersion: "1.0",
+    architecture: { id: "mern", name: "Test" },
+    roots: { backend: { detect: ["backend"], marker: "package.json", default: "backend" }, frontend: { detect: ["frontend"], marker: "src/main.jsx", default: "frontend" } },
+    conventions: {},
+    paths: { "backend.modules": "{backend}/src/modules", "frontend.pages": "{frontend}/src/pages" },
+    anchors: {},
+  }));
+  mkdirSync(path.join(dir, "backend", "src", "routes"), { recursive: true });
+  writeFileSync(path.join(dir, "backend", "package.json"), JSON.stringify({ name: "backend" }));
+  writeFileSync(path.join(dir, "backend", "src", "app.js"), "// template app.js\n");
+  writeFileSync(path.join(dir, "backend", "server.js"), "// template server.js\n");
+  writeFileSync(path.join(dir, "backend", "src", "routes", "index.js"), "// template routes index\n");
+  mkdirSync(path.join(dir, "frontend", "src", "routes"), { recursive: true });
+  mkdirSync(path.join(dir, "frontend", "src", "config"), { recursive: true });
+  writeFileSync(path.join(dir, "frontend", "package.json"), JSON.stringify({ name: "frontend" }));
+  writeFileSync(path.join(dir, "frontend", "index.html"), "<html>template</html>\n");
+  writeFileSync(path.join(dir, "frontend", "src", "main.jsx"), "// template main.jsx\n");
+  writeFileSync(path.join(dir, "frontend", "src", "App.jsx"), "// template App.jsx\n");
+  writeFileSync(path.join(dir, "frontend", "src", "routes", "AppRouter.jsx"), "// template AppRouter.jsx\n");
+  writeFileSync(path.join(dir, "frontend", "src", "config", "app-preset.js"), "// template app-preset.js\n");
+}
 const silent = () =>
   new Reporter({
     stdout: { write() {}, isTTY: false },
@@ -61,23 +85,33 @@ describe("loom upgrade", () => {
     mkdirSync(path.join(root, ".loom"), { recursive: true });
     writeFileSync(path.join(root, ".loom", "blueprint.json"), builtin);
     mkdirSync(path.join(root, "backend"), { recursive: true });
+    writeFileSync(path.join(root, "backend", "package.json"), JSON.stringify({ name: "backend", dependencies: {} }));
     mkdirSync(path.join(root, "frontend"), { recursive: true });
+    writeFileSync(path.join(root, "frontend", "package.json"), JSON.stringify({ name: "frontend", dependencies: {} }));
+
+    const templateDir = tmp("upgrade-template");
+    createMinimalTemplate(templateDir);
 
     const r = await upgrade({
       projectRoot: root,
       reporter: silent(),
       cliVersion: "99.0.0",
       write: true,
+      templateDir,
     });
 
     expect(r.ok).toBe(true);
     expect(r.errors).toBe(0);
-    expect(r.migrationsApplied).toHaveLength(1);
+    expect(r.migrationsApplied.length).toBeGreaterThan(0);
     const metadata = JSON.parse(
       readFileSync(path.join(root, ".loom", "metadata.json"), "utf-8"),
     );
     expect(metadata.engineCompatibility).toBe("stackloom-cli@>=99.0.0");
+    // Verify some contract files were synced to the project
+    expect(readFileSync(path.join(root, "backend", "src", "app.js"), "utf-8")).toBe("// template app.js\n");
+    expect(readFileSync(path.join(root, "frontend", "src", "main.jsx"), "utf-8")).toBe("// template main.jsx\n");
     rmSync(root, { recursive: true, force: true });
+    rmSync(templateDir, { recursive: true, force: true });
   });
 
   it("errors when CLI is below engine.minCliVersion", async () => {

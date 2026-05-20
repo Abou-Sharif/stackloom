@@ -12,8 +12,12 @@ import { toast } from "sonner";
 export default function <%= resource.pascalName %>ListPage() {
   const { data, loading, refresh } = use<%= resource.pascalName %>();
   const [editingItem, setEditingItem] = useState(null);
+  const [serverErrors, setServerErrors] = useState(null);
 
-  const handleEdit = (item) => setEditingItem(item);
+  const handleEdit = (item) => {
+    setEditingItem(item);
+    setServerErrors(null);
+  };
 
   const handleDelete = async (item) => {
     if (!confirm("Are you sure you want to delete this <%= resource.name.toLowerCase() %>?")) return;
@@ -22,11 +26,13 @@ export default function <%= resource.pascalName %>ListPage() {
       toast.success("<%= resource.name %> deleted successfully");
       refresh();
     } catch (err) {
-      toast.error("Failed to delete <%= resource.name.toLowerCase() %>");
+      const msg = err.response?.data?.message || "Failed to delete";
+      toast.error(msg);
     }
   };
 
   const handleSubmit = async (formData) => {
+    setServerErrors(null);
     try {
       if (editingItem) {
         await api.update(editingItem._id, formData);
@@ -38,7 +44,14 @@ export default function <%= resource.pascalName %>ListPage() {
       setEditingItem(null);
       refresh();
     } catch (err) {
-      toast.error(editingItem ? "Failed to update <%= resource.name.toLowerCase() %>" : "Failed to create <%= resource.name.toLowerCase() %>");
+      const responseErrors = err.response?.data?.errors;
+      if (responseErrors && Array.isArray(responseErrors) && responseErrors.length > 0) {
+        const mapped = {};
+        responseErrors.forEach((e) => { mapped[e.field] = e.message; });
+        setServerErrors(mapped);
+      }
+      const msg = err.response?.data?.message || "Something went wrong";
+      toast.error(msg);
     }
   };
 
@@ -58,10 +71,12 @@ export default function <%= resource.pascalName %>ListPage() {
             {editingItem ? "Edit <%= resource.name %>" : "Create <%= resource.name %>"}
           </h2>
           <<%= resource.pascalName %>Form
+            key={editingItem?._id || 'create'}
             initialData={editingItem}
             onSubmit={handleSubmit}
             onCancel={editingItem ? () => setEditingItem(null) : undefined}
             isLoading={loading}
+            serverErrors={serverErrors}
           />
         </section>
 

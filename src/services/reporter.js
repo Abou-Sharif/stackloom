@@ -76,6 +76,27 @@ export class Reporter {
     });
   }
 
+  /** Plain human-readable line (bypasses quiet suppression for explain/ls-style commands). */
+  log(message) {
+    if (!this.jsonMode) this._line(this.stdout, message ?? "");
+  }
+
+  /** A section heading — bold-formatted, always shown in human mode. */
+  heading(message) {
+    if (!this.jsonMode) {
+      this._line(this.stdout, "");
+      this._line(this.stdout, this._paint(ANSI.blue, message));
+      this._line(this.stdout, this._paint(ANSI.gray, "─".repeat(Math.min(message.length, 60))));
+    }
+  }
+
+  /** A subsection label. */
+  section(message) {
+    if (!this.jsonMode) {
+      this._line(this.stdout, this._paint(ANSI.blue, `▸ ${message}`));
+    }
+  }
+
   /** Normal informational output. Hidden in quiet/json mode. */
   info(message, data) {
     this._record("info", message, data);

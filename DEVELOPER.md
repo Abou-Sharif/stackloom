@@ -86,6 +86,8 @@ without touching callers.
 - Run `pnpm install` at the repo root.
 - Use `node bin/cli.js --help` to verify the CLI entrypoint.
 - Use `pnpm link --global` and `loom --help` for local command testing.
+- All new commands should use the `Reporter` instead of raw `console.*`/`chalk`/`ora`:
+  `const reporter = reporterFromOptions({ ...program.opts(), ...options })`
 
 ## Templates & EJS
 
@@ -96,6 +98,11 @@ without touching callers.
 - Resource templates receive `{ resource, blueprint, options, project, utils }`.
 - Shared UI wrapper components such as `PageWrapper` should accept the props
   used by generated pages, including `title`, `subtitle`, and `actions`.
+- Generated form EJS (`form.jsx.ejs`) emits a Zod schema wired to `react-hook-form`
+  via `zodResolver`. Page templates (page, modal, sidepanel, inline) parse
+  `err.response.data.errors` into `serverErrors` and map them as inline field
+  errors via `form.setError()`. Keep this pattern consistent when updating
+  form or page templates.
 
 ## Conventions
 
