@@ -34,6 +34,8 @@ import preset from "../src/commands/preset.js";
 import makeResource from "../src/commands/make/resource.js";
 import generateResource from "../src/commands/generate-resource.js";
 import check from "../src/commands/check.js";
+import validateCmd from "../src/commands/validate.js";
+import usageCmd from "../src/commands/usage.js";
 import env from "../src/commands/env.js";
 import rename from "../src/commands/rename.js";
 import upgrade from "../src/commands/upgrade.js";
@@ -483,6 +485,22 @@ program
   .description("Generate a complete scenario preset: parking|payroll|inventory|booking|delivery")
   .option("--force", "Overwrite existing files")
   .action((scenario, options) => scaffoldCmd(scenario, { ...program.opts(), ...options }));
+
+// Validate — project audit against an exam or scenario checklist
+program
+  .command("validate <scenario>")
+  .description("Audit project against a scenario/exam checklist (parking|payroll|inventory|booking|delivery)")
+  .action(async (scenario, options) => {
+    await validateCmd(scenario, { ...program.opts(), ...options });
+  });
+
+// Usage — write CLI_USAGE.md to project root
+program
+  .command("usage")
+  .description("Write CLI_USAGE.md reference to the project root")
+  .action(async (options) => {
+    await usageCmd({ ...program.opts(), ...options });
+  });
 
 // Add-report — aggregation pipeline report generator
 const reportCmd = program

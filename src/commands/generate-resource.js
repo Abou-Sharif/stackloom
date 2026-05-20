@@ -288,6 +288,11 @@ async function askResourceFields() {
         type: "input",
         name: "pattern",
         message: "Regex pattern (optional):",
+        validate: (value) => {
+          if (!value) return true;
+          try { new RegExp(value); return true; }
+          catch (e) { return `Invalid regex: ${e.message}`; }
+        },
       },
       {
         type: "confirm",

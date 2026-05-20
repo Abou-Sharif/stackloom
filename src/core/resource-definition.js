@@ -281,6 +281,15 @@ export function parseRelationsSpec(spec) {
     hasMany.push({ field, model, foreignKey });
   }
 
+  // Detect duplicate virtual field names
+  const fields = hasMany.map((r) => r.field);
+  const dupes = [...new Set(fields.filter((f, i) => fields.indexOf(f) !== i))];
+  if (dupes.length) {
+    throw new Error(
+      `Duplicate virtual field(s): ${dupes.join(", ")}. Each hasMany virtual must have a unique name.`,
+    );
+  }
+
   return { hasMany };
 }
 

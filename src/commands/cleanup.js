@@ -50,6 +50,7 @@ const STARTER_METADATA = [
   "CONTRIBUTING.md",
   "CODE_OF_CONDUCT.md",
   "SPLIT.md",
+  "CLI_USAGE.md",
   "frontend/src/config/DESIGN_PRESETS.md",
 ];
 

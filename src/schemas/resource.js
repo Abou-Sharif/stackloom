@@ -117,6 +117,16 @@ export function validateResourceDefinition(raw) {
         );
       }
     }
+    if (field.validation.min != null && field.validation.max != null && field.validation.min > field.validation.max) {
+      issues.push(
+        `fields.${field.name}: min (${field.validation.min}) cannot be greater than max (${field.validation.max})`,
+      );
+    }
+    if (field.validation.minLength != null && field.validation.maxLength != null && field.validation.minLength > field.validation.maxLength) {
+      issues.push(
+        `fields.${field.name}: minLength (${field.validation.minLength}) cannot be greater than maxLength (${field.validation.maxLength})`,
+      );
+    }
   }
 
   const rel = parsed.data.relations;
