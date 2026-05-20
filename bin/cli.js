@@ -42,6 +42,7 @@ import addFieldCmd from "../src/commands/add-field.js";
 import explainCmd from "../src/commands/explain.js";
 import forgeCmd from "../src/commands/forge.js";
 import addReportCmd from "../src/commands/add-report.js";
+import scaffoldCmd from "../src/commands/scaffold.js";
 
 program
   .name(branding.binName)
@@ -470,6 +471,13 @@ program
   .command("explain")
   .description("Show an overview of the project: resources, routes, modules, theme, auth, and env")
   .action((options) => explainCmd({ ...program.opts(), ...options }));
+
+// Scaffold — generate a complete scenario preset (parking, payroll, etc.)
+program
+  .command("scaffold <scenario>")
+  .description("Generate a complete scenario preset: parking|payroll|inventory|booking|delivery")
+  .option("--force", "Overwrite existing files")
+  .action((scenario, options) => scaffoldCmd(scenario, { ...program.opts(), ...options }));
 
 // Add-report — aggregation pipeline report generator
 const reportCmd = program

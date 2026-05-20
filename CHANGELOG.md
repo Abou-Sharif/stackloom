@@ -2,6 +2,18 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.9.0] — 2026-05-20
+
+### Added
+
+- **`loom scaffold <scenario>`** — new command that generates a complete scenario preset with pre-defined resources. Supports 5 scenarios:
+  - `parking` — ParkingSlot, Vehicle, Ticket with slot/vehicle relations
+  - `payroll` — Department, Employee, Timesheet, Payroll with employee/department relations
+  - `inventory` — Category, Product, Supplier, StockMovement with product/supplier/category relations
+  - `booking` — Customer, Service, Booking with customer/service relations
+  - `delivery` — Driver, Route, Package, Order with package/driver/route relations
+  Each scenario generates full-stack resources with fields, validators, ref relations, frontend pages, and nav entries.
+
 ## [1.8.0] — 2026-05-20
 
 ### Added
