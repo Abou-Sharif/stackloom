@@ -52,12 +52,12 @@ const getAll<%= resource.pascalName %>s = async (filters = {}) => {
   const total = await <%= resource.pascalName %>Model.countDocuments(query.getFilter());
 
 <% if (_refPopulate.length) { -%>
-  // Populate ref fields if caller requested them via `populate` query param.
-  // Pass ?populate=true to populate all refs, or ?populate=field1,field2 for specific fields.
-  let populateFields = [];
-  if (filters.populate === true || filters.populate === 'true') {
-    populateFields = <%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>;
-  } else if (Array.isArray(filters.populate) && filters.populate.length > 0) {
+  // Populate ref fields by default so the API always returns resolved objects.
+  // Pass ?populate=false to suppress population, or ?populate=field1,field2 for specific fields.
+  let populateFields = <%- JSON.stringify(_refPopulate.map(function(f) { return f.name; })) %>;
+  if (filters.populate === false || filters.populate === 'false') {
+    populateFields = [];
+  } else if (Array.isArray(filters.populate) && filters.populate.length > 0 && filters.populate[0] !== 'true') {
     populateFields = filters.populate;
   }
   for (const p of populateFields) {

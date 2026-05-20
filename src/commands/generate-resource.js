@@ -168,10 +168,34 @@ async function resolveResource(name, options, projectRoot) {
   if (options.relations && String(options.relations).trim()) {
     const parsedRel = parseRelationsSpec(String(options.relations).trim());
     raw.relations = raw.relations || {};
-    const existing = Array.isArray(raw.relations.hasMany)
-      ? raw.relations.hasMany
-      : [];
-    raw.relations.hasMany = [...existing, ...parsedRel.hasMany];
+    if (parsedRel.hasMany) {
+      const existing = Array.isArray(raw.relations.hasMany)
+        ? raw.relations.hasMany
+        : [];
+      raw.relations.hasMany = [...existing, ...parsedRel.hasMany];
+    }
+    if (parsedRel.belongsTo) {
+      // belongsTo generates ref fields automatically
+      const existing = Array.isArray(raw.relations.belongsTo)
+        ? raw.relations.belongsTo
+        : [];
+      raw.relations.belongsTo = [...existing, ...parsedRel.belongsTo];
+      // Auto-create ref fields for each belongsTo relation
+      for (const rel of parsedRel.belongsTo) {
+        const alreadyHasField = raw.fields.some(
+          (f) => f.name === rel.field || f.name === rel.model.toLowerCase(),
+        );
+        if (!alreadyHasField) {
+          raw.fields.push({
+            name: rel.field,
+            type: "ref",
+            validation: {},
+            special: { model: rel.model },
+            ui: {},
+          });
+        }
+      }
+    }
   }
 
   const validated = validateResourceDefinition(raw);
@@ -411,19 +435,113 @@ async function askPageMetadata(name, options) {
   };
 }
 
-/** Interactive: build `--relations`-style hasMany virtual populate specs. */
-async function askHasManyVirtualRelations() {
-  const { want } = await inquirer.prompt([
+/** Interactive: build `--relations`-style relation specs (belongsTo + hasMany). */
+async function askRelations() {
+  const chunks = [];
+
+  // ── belongsTo (ref fields) ─────────────────────────────────────────────
+  const { wantBt } = await inquirer.prompt([
     {
       type: "confirm",
-      name: "want",
+      name: "wantBt",
+      message:
+        "Add belongsTo relations (ref fields pointing to other models, e.g. Employee belongsTo Department)?",
+      default: false,
+    },
+  ]);
+  if (wantBt) {
+    let moreBt = true;
+    while (moreBt) {
+      const ans = await inquirer.prompt([
+        {
+          type: "input",
+          name: "field",
+          message: "Field name on this model (e.g. department):",
+          validate: (v) =>
+            /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) ||
+            "Must be a valid JavaScript identifier",
+          filter: (v) => (v || "").trim(),
+        },
+        {
+          type: "input",
+          name: "model",
+          message: "Referenced Mongoose model name (PascalCase, e.g. Department):",
+          validate: (v) =>
+            /^[A-Z][a-zA-Z0-9]*$/.test((v || "").trim()) ||
+            "Use PascalCase, matching the referenced model's name",
+          filter: (v) => (v || "").trim(),
+        },
+        {
+          type: "confirm",
+          name: "more",
+          message: "Add another belongsTo relation?",
+          default: false,
+        },
+      ]);
+      chunks.push(`${ans.field}:belongsTo:${ans.model}`);
+      moreBt = ans.more;
+    }
+  }
+
+  // ── hasMany (virtual populate) ─────────────────────────────────────────
+  const { wantHm } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "wantHm",
       message:
         "Add hasMany virtual relations (child docs that reference this resource via a foreign key)?",
       default: false,
     },
   ]);
-  if (!want) return "";
+  if (wantHm) {
+    let moreHm = true;
+    while (moreHm) {
+      const ans = await inquirer.prompt([
+        {
+          type: "input",
+          name: "field",
+          message: "Virtual property name on this model (e.g. orders):",
+          validate: (v) =>
+            /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) ||
+            "Must be a valid JavaScript identifier",
+          filter: (v) => (v || "").trim(),
+        },
+        {
+          type: "input",
+          name: "model",
+          message: "Child Mongoose model name (PascalCase, e.g. Order):",
+          validate: (v) =>
+            /^[A-Z][a-zA-Z0-9]*$/.test((v || "").trim()) ||
+            "Use PascalCase, matching the child model's name",
+          filter: (v) => (v || "").trim(),
+        },
+        {
+          type: "input",
+          name: "foreignKey",
+          message:
+            "On the child document, which field stores THIS resource's id? (e.g. customerId)",
+          validate: (v) =>
+            /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) ||
+            "Must be a valid identifier",
+          filter: (v) => (v || "").trim(),
+        },
+        {
+          type: "confirm",
+          name: "more",
+          message: "Add another hasMany relation?",
+          default: false,
+        },
+      ]);
+      chunks.push(`${ans.field}:hasMany:${ans.model}:${ans.foreignKey}`);
+      moreHm = ans.more;
+    }
+  }
 
+  return chunks.join(";");
+}
+
+/** Interactive: build belongsTo relation specs only (used in amend flow). */
+async function askRelationsBelongsToOnly() {
   const chunks = [];
   let more = true;
   while (more) {
@@ -431,7 +549,7 @@ async function askHasManyVirtualRelations() {
       {
         type: "input",
         name: "field",
-        message: "Virtual property name on this model (e.g. orders):",
+        message: "Field name on this model (e.g. department):",
         validate: (v) =>
           /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) ||
           "Must be a valid JavaScript identifier",
@@ -440,30 +558,20 @@ async function askHasManyVirtualRelations() {
       {
         type: "input",
         name: "model",
-        message: "Child Mongoose model name (PascalCase, e.g. Order):",
+        message: "Referenced Mongoose model name (PascalCase, e.g. Department):",
         validate: (v) =>
           /^[A-Z][a-zA-Z0-9]*$/.test((v || "").trim()) ||
-          "Use PascalCase, matching the child model's name",
-        filter: (v) => (v || "").trim(),
-      },
-      {
-        type: "input",
-        name: "foreignKey",
-        message:
-          "On the child document, which field stores THIS resource's id? (e.g. customerId)",
-        validate: (v) =>
-          /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) ||
-          "Must be a valid identifier",
+          "Use PascalCase, matching the referenced model's name",
         filter: (v) => (v || "").trim(),
       },
       {
         type: "confirm",
         name: "more",
-        message: "Add another hasMany relation?",
+        message: "Add another belongsTo relation?",
         default: false,
       },
     ]);
-    chunks.push(`${ans.field}:hasMany:${ans.model}:${ans.foreignKey}`);
+    chunks.push(`${ans.field}:belongsTo:${ans.model}`);
     more = ans.more;
   }
   return chunks.join(";");
@@ -505,6 +613,7 @@ async function promptAmendResource(name, options) {
         choices: [
           { name: "Add or update field(s)", value: "add" },
           { name: "Remove field(s)", value: "remove" },
+          { name: "Add belongsTo ref relation(s)", value: "belongsToRel" },
           { name: "Add hasMany virtual relation(s)", value: "relations" },
           { name: "Apply changes", value: "done" },
         ],
@@ -540,8 +649,15 @@ async function promptAmendResource(name, options) {
       pick.forEach((n) => removedNames.add(n));
     }
 
+    if (action === "belongsToRel") {
+      const rel = await askRelationsBelongsToOnly();
+      if (rel) {
+        relationsSpec = relationsSpec ? `${relationsSpec};${rel}` : rel;
+      }
+    }
+
     if (action === "relations") {
-      const rel = await askHasManyVirtualRelations();
+      const rel = await askRelations();
       if (rel) {
         relationsSpec = relationsSpec ? `${relationsSpec};${rel}` : rel;
       }
@@ -603,7 +719,7 @@ async function promptGenerateResourceOptions(type, name, options) {
     !String(interactiveOptions.relations || "").trim() &&
     !interactiveOptions.file
   ) {
-    const relSpec = await askHasManyVirtualRelations();
+    const relSpec = await askRelations();
     if (relSpec) interactiveOptions.relations = relSpec;
   }
 

@@ -3,6 +3,8 @@
  * Central type that describes a domain resource end-to-end
  */
 
+import { pluralize } from '../utils/namingUtils.js';
+
 export class ResourceDefinition {
   constructor({
     name,
@@ -67,10 +69,10 @@ export class ResourceDefinition {
     return this.camelName.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase());
   }
   get pluralKebab() {
-    return this.kebabName + "s";
+    return pluralize(this.kebabName);
   }
   get pluralPascal() {
-    return this.pascalName + "s";
+    return pluralize(this.pascalName);
   }
 
   // ── Computed flags ────────────────────────────────────────────────────────
@@ -237,13 +239,19 @@ const IDENT = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 const PASCAL = /^[A-Z][a-zA-Z0-9]*$/;
 
 /**
- * Parse `--relations` for virtual hasMany associations (Mongoose virtual populate).
+ * Parse `--relations` for belongsTo (ref fields) and hasMany (virtual populate).
  *
- * Format (repeat with `;`): `virtualField:hasMany:TargetModel:foreignKeyInChild`
- * Example: `orders:hasMany:Order:customerId` — Customer.orders → Order docs where `customerId` === this._id.
+ * Format (repeat with `;`):
+ *   `fieldName:belongsTo:TargetModel`            — creates a ref field `fieldName` pointing to TargetModel
+ *   `virtualField:hasMany:TargetModel:foreignKey` — virtual populate (e.g. orders:hasMany:Order:customerId)
+ *
+ * Examples:
+ *   `employee:belongsTo:Employee`                — Salary.employee → Employee ObjectId ref
+ *   `department:belongsTo:Department`            — Employee.department → Department ObjectId ref
+ *   `orders:hasMany:Order:customerId`            — Customer.orders → Order docs where customerId === this._id
  *
  * @param {string} spec
- * @returns {{ hasMany: Array<{ field: string, model: string, foreignKey: string }> } | null}
+ * @returns {{ belongsTo: Array<{ field: string, model: string }>, hasMany: Array<{ field: string, model: string, foreignKey: string }> } | null}
  */
 export function parseRelationsSpec(spec) {
   if (!spec || typeof spec !== "string" || !spec.trim()) return null;
@@ -252,45 +260,71 @@ export function parseRelationsSpec(spec) {
     .split(";")
     .map((s) => s.trim())
     .filter(Boolean);
+  const belongsTo = [];
   const hasMany = [];
 
   for (const entry of entries) {
     const parts = entry.split(":").map((p) => p.trim());
-    if (parts.length !== 4) {
+    if (parts.length === 3) {
+      // belongsTo: fieldName:belongsTo:TargetModel
+      const [field, kind, model] = parts;
+      if (kind !== "belongsTo") {
+        throw new Error(
+          `Invalid relation "${entry}". Use: fieldName:belongsTo:TargetModel (3 parts) or virtualField:hasMany:TargetModel:foreignKey (4 parts).`,
+        );
+      }
+      if (!IDENT.test(field)) {
+        throw new Error(`Invalid field name "${field}" in "${entry}".`);
+      }
+      if (!PASCAL.test(model)) {
+        throw new Error(
+          `Invalid model "${model}" in "${entry}" — use PascalCase (e.g. Employee).`,
+        );
+      }
+      belongsTo.push({ field, model });
+    } else if (parts.length === 4) {
+      // hasMany: virtualField:hasMany:TargetModel:foreignKey
+      const [field, kind, model, foreignKey] = parts;
+      if (kind !== "hasMany") {
+        throw new Error(
+          `Invalid relation "${entry}". Kind must be hasMany (got "${kind}").`,
+        );
+      }
+      if (!IDENT.test(field)) {
+        throw new Error(`Invalid virtual field name "${field}" in "${entry}".`);
+      }
+      if (!PASCAL.test(model)) {
+        throw new Error(
+          `Invalid model "${model}" in "${entry}" — use PascalCase (e.g. Order).`,
+        );
+      }
+      if (!IDENT.test(foreignKey)) {
+        throw new Error(`Invalid foreign key "${foreignKey}" in "${entry}".`);
+      }
+      hasMany.push({ field, model, foreignKey });
+    } else {
       throw new Error(
-        `Invalid relation "${entry}". Use: virtualField:hasMany:TargetModel:foreignKey (4 parts). Example: orders:hasMany:Order:customerId`,
+        `Invalid relation "${entry}". Use: fieldName:belongsTo:TargetModel (3 parts) or virtualField:hasMany:TargetModel:foreignKey (4 parts).`,
       );
     }
-    const [field, kind, model, foreignKey] = parts;
-    if (kind !== "hasMany") {
-      throw new Error(
-        `Invalid relation "${entry}". Kind must be hasMany (got "${kind}").`,
-      );
-    }
-    if (!IDENT.test(field)) {
-      throw new Error(`Invalid virtual field name "${field}" in "${entry}".`);
-    }
-    if (!PASCAL.test(model)) {
-      throw new Error(
-        `Invalid model "${model}" in "${entry}" — use PascalCase (e.g. Order).`,
-      );
-    }
-    if (!IDENT.test(foreignKey)) {
-      throw new Error(`Invalid foreign key "${foreignKey}" in "${entry}".`);
-    }
-    hasMany.push({ field, model, foreignKey });
   }
 
-  // Detect duplicate virtual field names
-  const fields = hasMany.map((r) => r.field);
-  const dupes = [...new Set(fields.filter((f, i) => fields.indexOf(f) !== i))];
+  // Detect duplicate virtual field names across both kinds
+  const allFields = [
+    ...belongsTo.map((r) => r.field),
+    ...hasMany.map((r) => r.field),
+  ];
+  const dupes = [...new Set(allFields.filter((f, i) => allFields.indexOf(f) !== i))];
   if (dupes.length) {
     throw new Error(
-      `Duplicate virtual field(s): ${dupes.join(", ")}. Each hasMany virtual must have a unique name.`,
+      `Duplicate field name(s): ${dupes.join(", ")}. Each relation field must have a unique name.`,
     );
   }
 
-  return { hasMany };
+  const result = {};
+  if (belongsTo.length) result.belongsTo = belongsTo;
+  if (hasMany.length) result.hasMany = hasMany;
+  return Object.keys(result).length ? result : null;
 }
 
 /**
