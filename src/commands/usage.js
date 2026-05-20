@@ -48,6 +48,7 @@ Generate a full-stack resource (model, controller, routes, validator, frontend p
 | \`--remove-fields <list>\` | Remove fields by name on amend (comma-separated) |
 | \`--force\` | Overwrite files without AUTO-GENERATED markers |
 | \`--dry-run\` | Preview file plan without writing |
+| \`--preview\` | Show estimated file count, time, and planned files before generating |
 
 ### \`loom resource sync <name>\`
 
@@ -190,9 +191,13 @@ Inject custom CSS rules.
 \`loom customize list-themes\` — List available built-in themes
 \`loom customize list-layouts\` — List available layout shells
 \`loom customize list-data\` — List available data display templates
+\`loom customize theme preset apply <code>\` — Resolve a shadcn preset code and apply its CSS variables
+\`loom customize theme preset save <name>\` — Save current imported theme as a named preset in .loom/themes/
+\`loom customize theme preset list\` — List locally saved theme presets
+\`loom customize theme preset open\` — Open shadcn/create in browser to build a custom preset
+
 \`loom customize list-ui\` — List available UI variant presets
 \`loom customize list-fonts\` — List available font presets
-
 ---
 
 ## Reports
@@ -223,6 +228,7 @@ Generate an aggregation pipeline report with backend API and frontend page.
 |---|---|
 | \`loom doctor\` | Check environment and project health |
 | \`loom check\` | Verify project structure, blueprint, anchors, env |
+| \`loom completion [bash|zsh]\` | Generate shell completion script for tab-completion |
 | \`loom upgrade [--write]\` | Check CLI vs template compatibility; apply upgrade |
 | \`loom explain\` | Show project overview: resources, routes, modules, theme, auth, env |
 
@@ -242,6 +248,7 @@ Manage upgrade backups.
 | Command | Description |
 |---|---|
 | \`loom remove <type> <name>\` | Remove a generated page or module |
+| \`loom usage\` | Write CLI_USAGE.md reference to project root |
 | \`loom cleanup [preset]\` | De-brand project (\`minimal\` | \`production\` | \`template\`) |
 | \`loom finalize\` | Prepare project for production (lint, test, build) |
 | \`loom rollback\` | Undo the last generation action |
@@ -256,6 +263,40 @@ Manage upgrade backups.
 | \`loom preset [name]\` | Apply a predefined configuration preset (\`saas\`, \`clinic\`, etc.) |
 | \`loom rename <new-name>\` | Rebrand the CLI command name |
 | \`loom make:resource [name]\` | Create resource from schema or interactive wizard |
+
+---
+
+## Programmatic API
+
+Every CLI command is available as a JavaScript module. Import from \`stackloom-cli/api\`:
+
+\`\`\`js
+import { doctor, validate, generateResource } from "stackloom-cli/api";
+
+const result = await doctor();
+console.log(result.ok, result.output.stdout);
+\`\`\`
+
+Each function returns \`{ ok, data, error, output: { stdout, stderr } }\`.
+
+**Available exports:** \`doctor\`, \`check\`, \`explain\`, \`validate\`, \`usage\`, \`generateResource\`, \`scaffold\`, \`addReport\`, \`wizard\`, \`customizeTheme\`, \`cleanup\`, \`rollback\`, \`finalize\`, \`env\`, \`preset\`, \`init\`, \`command\`, \`run\`.
+
+---
+
+## Shell Completion
+
+Generate bash or zsh completion scripts for tab-completion of all commands, subcommands, and flags:
+
+\`\`\`bash
+source <(loom completion bash)    # Activate for current session
+loom completion bash > ~/.loom-completion.bash  # Install permanently
+echo "source ~/.loom-completion.bash" >> ~/.bashrc
+\`\`\`
+
+\`\`\`bash
+source <(loom completion zsh)     # Activate for current session
+loom completion zsh > /usr/local/share/zsh/site-functions/_loom  # Install permanently
+\`\`\`
 
 ---
 
