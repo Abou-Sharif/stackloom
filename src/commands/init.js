@@ -54,6 +54,9 @@ const DESIGN_THEMES = [
   "studioElevated",
   "operationsDense",
   "commerceWarm",
+  "violetSanctum",
+  "tealFlow",
+  "warmNeutral",
 ];
 
 const DESIGN_THEME_LABELS = {
@@ -62,6 +65,9 @@ const DESIGN_THEME_LABELS = {
   studioElevated: "Studio Elevated — rich, modern accents",
   operationsDense: "Operations Dense — bold, data-focused UI",
   commerceWarm: "Commerce Warm — inviting retail theme",
+  violetSanctum: "Violet Sanctum — creative, purple-forward palette",
+  tealFlow: "Teal Flow — calm modern teal tones",
+  warmNeutral: "Warm Neutral — editorial warm brown palette",
 };
 
 const DESIGN_THEME_CHOICES = DESIGN_THEMES.map((theme) => ({

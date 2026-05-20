@@ -11,6 +11,9 @@ import { default as moduleGenerator } from "./generate/module.js";
 import { default as themeGenerator } from "./generate/theme.js";
 import { default as deployGenerator } from "./generate/deploy.js";
 import { default as removeCommand } from "./remove.js";
+import generateResource from "./generate-resource.js";
+import addReportCmd from "./add-report.js";
+import scaffoldCmd from "./scaffold.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,7 +41,10 @@ const THEME_METHODS = [
 ];
 
 const ACTION_CHOICES = [
-  { name: "➕ Add a backend module", value: "add_module" },
+  { name: "📦 Add a full-stack resource (fields, routes, pages)", value: "add_resource" },
+  { name: "📊 Add an aggregation report", value: "add_report" },
+  { name: "🏗️  Scaffold a scenario preset (parking, payroll, etc.)", value: "scaffold" },
+  { name: "➕ Add a backend module (deprecated — use resource instead)", value: "add_module" },
   { name: "➕ Add a frontend page", value: "add_page" },
   { name: "🎨 Import a shadcn theme", value: "add_theme" },
   { name: "📦 Generate deploy configs", value: "add_deploy" },
@@ -56,6 +62,9 @@ function ensureLeadingSlash(value) {
 function summarizeStep(step) {
   if (step.type === "generate") {
     const labels = {
+      resource: "Full-stack resource",
+      report: "Aggregation report",
+      scaffold: "Scenario preset",
       module: "Backend module",
       page: "Frontend page",
       theme: "Shadcn theme",
@@ -133,6 +142,101 @@ export default async function wizardCmd(options) {
     if (action === "review") {
       printPlan(steps);
       continue;
+    }
+
+    if (action === "add_resource") {
+      const { resourceName } = await inquirer.prompt([
+        {
+          type: "input",
+          name: "resourceName",
+          message: "Resource name (e.g. Product, Category, Order):",
+          validate: (input) =>
+            /^[a-z0-9-_]+$/i.test(input) ||
+            "Use only letters, numbers, dashes, underscores",
+        },
+      ]);
+
+      const { addFields } = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "addFields",
+          message: "Configure fields now?",
+          default: true,
+        },
+      ]);
+
+      let fields = '';
+      if (addFields) {
+        const { fieldSpec } = await inquirer.prompt([
+          {
+            type: "input",
+            name: "fieldSpec",
+            message:
+              "Field spec (name:type:rules;...): e.g. name:string:required;price:number;email:email",
+            default: 'name:string:required',
+          },
+        ]);
+        fields = fieldSpec;
+      }
+
+      steps.push({
+        type: "generate",
+        subtype: "resource",
+        name: resourceName,
+        options: { fields, arch: 'moderate', crud: 'full', force: false },
+      });
+      console.log(chalk.green(`✓ Resource queued: ${resourceName}`));
+    }
+
+    if (action === "add_report") {
+      const { reportName, model } = await inquirer.prompt([
+        {
+          type: "input",
+          name: "reportName",
+          message: "Report name (e.g. sales-summary, user-stats):",
+          validate: (input) =>
+            /^[a-z0-9-]+$/i.test(input) ||
+            "Use only letters, numbers, dashes",
+        },
+        {
+          type: "input",
+          name: "model",
+          message: "Mongoose model to aggregate (PascalCase):",
+          validate: (input) =>
+            /^[A-Z][a-zA-Z0-9]*$/.test(input) || "Use PascalCase",
+        },
+      ]);
+      steps.push({
+        type: "generate",
+        subtype: "report",
+        name: reportName,
+        options: { model, interactive: true, frontend: true },
+      });
+      console.log(chalk.green(`✓ Report queued: ${reportName}`));
+    }
+
+    if (action === "scaffold") {
+      const { scenario } = await inquirer.prompt([
+        {
+          type: "list",
+          name: "scenario",
+          message: "Select a scenario preset:",
+          choices: [
+            { name: "Parking — slots, vehicles, tickets", value: "parking" },
+            { name: "Payroll — departments, employees, timesheets, payroll", value: "payroll" },
+            { name: "Inventory — categories, products, suppliers, stock", value: "inventory" },
+            { name: "Booking — customers, services, bookings", value: "booking" },
+            { name: "Delivery — drivers, routes, packages, orders", value: "delivery" },
+          ],
+        },
+      ]);
+      steps.push({
+        type: "generate",
+        subtype: "scaffold",
+        name: scenario,
+        options: {},
+      });
+      console.log(chalk.green(`✓ Scenario queued: ${scenario}`));
     }
 
     if (action === "add_module") {
@@ -430,6 +534,15 @@ export default async function wizardCmd(options) {
         process.chdir(projectRoot);
 
         switch (step.subtype) {
+          case "resource":
+            await generateResource('resource', step.name, step.options);
+            break;
+          case "report":
+            await addReportCmd(step.name, step.options);
+            break;
+          case "scaffold":
+            await scaffoldCmd(step.name, step.options);
+            break;
           case "module":
             await moduleGenerator(step.name, step.options);
             break;

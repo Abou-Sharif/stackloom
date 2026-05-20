@@ -586,6 +586,22 @@ async function promptGenerateResourceOptions(type, name, options) {
     interactiveOptions.arch = arch;
   }
 
+  if (!interactiveOptions.crud || interactiveOptions.crud === 'full') {
+    const { crud } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'crud',
+        message: 'CRUD scope:',
+        choices: [
+          { name: 'Full CRUD — all operations', value: 'full' },
+          { name: 'Insert-only — create form, no list/edit/delete', value: 'insert-only' },
+        ],
+        default: 'full',
+      },
+    ]);
+    interactiveOptions.crud = crud;
+  }
+
   if (!interactiveOptions.formMode) {
     const { formMode } = await inquirer.prompt([
       {
