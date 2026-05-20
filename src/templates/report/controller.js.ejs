@@ -1,0 +1,23 @@
+const service = require('../services/<%= kebabName %>.service');
+const ApiResponse = require('../../../utils/ApiResponse');
+
+// ── <%= title %> Report ────────────────────────────────────────────────────
+const get<%= pascalName %>Report = async (req, res, next) => {
+  try {
+    const filters = {
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo,
+      ...req.query,
+    };
+    delete filters.dateFrom;
+    delete filters.dateTo;
+    const result = await service.generate<%= pascalName %>Report(filters);
+    return res.status(200).json(new ApiResponse(200, '<%= title %> report', { data: result }).body);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+module.exports = {
+  get<%= pascalName %>Report,
+};

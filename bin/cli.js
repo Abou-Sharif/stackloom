@@ -41,6 +41,7 @@ import backupCmd from "../src/commands/backup.js";
 import addFieldCmd from "../src/commands/add-field.js";
 import explainCmd from "../src/commands/explain.js";
 import forgeCmd from "../src/commands/forge.js";
+import addReportCmd from "../src/commands/add-report.js";
 
 program
   .name(branding.binName)
@@ -469,6 +470,23 @@ program
   .command("explain")
   .description("Show an overview of the project: resources, routes, modules, theme, auth, and env")
   .action((options) => explainCmd({ ...program.opts(), ...options }));
+
+// Add-report — aggregation pipeline report generator
+const reportCmd = program
+  .command("add-report [name]")
+  .description("Generate an aggregation pipeline report with backend API and frontend page")
+  .option("--model <name>", "Mongoose model name (PascalCase)")
+  .option("--title <text>", "Human-readable report title")
+  .option("--description <text>", "Report description")
+  .option("--group-by <field>", "Group by field")
+  .option("--agg-fn <fn>", "Aggregation function: sum|count|avg|min|max")
+  .option("--agg-field <name>", "Result field name (e.g. total)")
+  .option("--agg-target <field>", "Aggregate on field")
+  .option("--sort-by <field>", "Sort by field")
+  .option("--sort-order <order>", "Sort order: asc|desc", "desc")
+  .option("--interactive", "Prompt for all report details")
+  .option("--no-frontend", "Skip frontend generation")
+  .action((name, options) => addReportCmd(name, { ...program.opts(), ...options }));
 
 // Env — keep .env in sync with .env.example
 program

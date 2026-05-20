@@ -1,0 +1,61 @@
+const <%= modelPascal %> = require('../models/<%= model %>');
+const ApiError = require('../../../utils/ApiError');
+
+// ── Report: <%= title %> ────────────────────────────────────────────────────
+/**
+ * Generate <%= title %> report
+ * @param {Object} filters — optional query filters (dateFrom, dateTo, etc.)
+ */
+const generate<%= pascalName %>Report = async (filters = {}) => {
+  const pipeline = [];
+
+  // ── Optional date range filter ────────────────────────────────────────────
+  if (filters.dateFrom || filters.dateTo) {
+    const match = { createdAt: {} };
+    if (filters.dateFrom) match.createdAt.$gte = new Date(filters.dateFrom);
+    if (filters.dateTo) match.createdAt.$lte = new Date(filters.dateTo);
+    pipeline.push({ $match: match });
+  }
+
+<% if (matchConditions) { -%>
+  // ── Custom match ──────────────────────────────────────────────────────────
+  pipeline.push({ $match: <%- JSON.stringify(matchConditions) %> });
+<% } -%>
+
+<% if (lookup) { -%>
+  // ── Lookup (join) ─────────────────────────────────────────────────────────
+  pipeline.push({ $lookup: { from: '<%= lookup.from %>', localField: '<%= lookup.localField %>', foreignField: '<%= lookup.foreignField %>', as: '<%= lookup.as %>' } });
+  pipeline.push({ $unwind: { path: '$<%= lookup.as %>', preserveNullAndEmptyArrays: true } });
+<% } -%>
+
+  // ── Group ─────────────────────────────────────────────────────────────────
+<% if (groupBy) { -%>
+  pipeline.push({
+    $group: {
+      _id: '$<%= groupBy %>',
+<% aggregations.forEach(function(agg) { -%>
+      <%= agg.field %>: { $<%= agg.fn %>: <% if (agg.fn === 'count') { %>{}<% } else { %>'$<%= agg.target %>'<% } %> },
+<% }); -%>
+    },
+  });
+
+  // ── Sort ──────────────────────────────────────────────────────────────────
+<% if (sortBy) { -%>
+  pipeline.push({ $sort: { '<%= sortBy %>': <%= sortOrder %> } });
+<% } -%>
+<% if (project) { -%>
+  pipeline.push({ $project: <%- JSON.stringify(project) %> });
+<% } -%>
+
+<% } else { -%>
+  // No group-by — return raw filtered data
+  pipeline.push({ $sort: { createdAt: -1 } });
+<% } -%>
+
+  const results = await <%= modelPascal %>.aggregate(pipeline);
+  return results;
+};
+
+module.exports = {
+  generate<%= pascalName %>Report,
+};

@@ -1,0 +1,12 @@
+const express = require('express');
+const controller = require('../controllers/<%= kebabName %>.controller');
+const { authenticateSession } = require('../../../middlewares/auth.middleware');
+
+const router = express.Router();
+
+router.use(authenticateSession);
+
+// GET /api/reports/<%= kebabName %> — generate the report
+router.get('/', controller.get<%= pascalName %>Report);
+
+module.exports = router;

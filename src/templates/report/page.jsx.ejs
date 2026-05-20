@@ -1,0 +1,115 @@
+import React, { useState, useEffect } from 'react';
+import { PageWrapper } from '@/components/layout/PageWrapper';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import api from '@/api/<%= kebabName %>.api';
+import { RefreshCcw } from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function <%= pascalName %>ReportPage() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  const fetchReport = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (dateFrom) params.dateFrom = dateFrom;
+      if (dateTo) params.dateTo = dateTo;
+      const result = await api.getReport(params);
+      setData(result?.data ?? []);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to load report';
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReport();
+  }, []);
+
+  const columns = data.length > 0 ? Object.keys(data[0]) : [];
+
+  return (
+    <PageWrapper
+      title="<%= title %>"
+      subtitle="<%= description %>"
+      actions={
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={fetchReport} disabled={loading}>
+            <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+      }
+    >
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-1">
+              <Label htmlFor="dateFrom">Date From</Label>
+              <Input id="dateFrom" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="dateTo">Date To</Label>
+              <Input id="dateTo" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            </div>
+            <Button onClick={fetchReport} disabled={loading}>
+              {loading ? 'Loading...' : 'Generate Report'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Results</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-muted-foreground">Loading report...</p>
+          ) : data.length === 0 ? (
+            <p className="text-muted-foreground">No data found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {columns.map((col) => (
+                      <TableHead key={col}>{col}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.map((row, i) => (
+                    <TableRow key={i}>
+                      {columns.map((col) => (
+                        <TableCell key={col}>{String(row[col] ?? '')}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </PageWrapper>
+  );
+}

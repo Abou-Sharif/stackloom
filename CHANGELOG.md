@@ -2,6 +2,12 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.8.0] — 2026-05-20
+
+### Added
+
+- **`loom add-report [name]`** — new command that generates an aggregation pipeline report. Interactive prompts or CLI flags (`--model`, `--group-by`, `--agg-fn`, `--agg-target`, `--sort-by`, `--title`, `--description`). Backend: generates report service with MongoDB aggregation pipeline, controller, and route mounted under `/api/reports/<name>`. Frontend: generates report page with date range filter, dynamic table, and API client. Supports `sum`, `count`, `avg`, `min`, `max` aggregation functions. Includes backend route injection, frontend lazy import, route, and nav entry with `bar-chart-2` icon.
+
 ## [1.7.0] — 2026-05-20
 
 ### Added

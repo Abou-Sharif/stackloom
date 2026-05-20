@@ -1,0 +1,14 @@
+import axiosInstance from './axiosInstance';
+
+/**
+ * <%= title %> Report API
+ */
+
+export const get<%= pascalName %>Report = async (params = {}) => {
+  const response = await axiosInstance.get('/reports/<%= kebabName %>', { params });
+  return response.data;
+};
+
+export default {
+  getReport: get<%= pascalName %>Report,
+};
