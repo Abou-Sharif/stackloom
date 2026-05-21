@@ -32,3 +32,6 @@ Thumbs.db
 .npmrc
 pnpm-lock.yaml
 .npmrc
+
+# Test project
+test-loom/

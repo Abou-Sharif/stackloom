@@ -86,6 +86,8 @@ export function pluralize(word) {
   }
 
   // Ends with s, x, z, ch, sh → add "es"
+  // For short words ending in z, double the z (quiz→quizzes, buzz→buzzes)
+  if (/z$/i.test(word) && word.length <= 4) return word + "zes";
   if (/[sxz]$/.test(lower) || /[cs]h$/.test(lower)) return word + "es";
 
   // Ends with consonant + y → change y to ies
