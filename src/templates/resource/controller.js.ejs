@@ -143,7 +143,7 @@ const list = async (req, res, next) => {
 <% }); -%>
       populate: req.query.populate ? req.query.populate.split(',') : [],
     };
-    const result = await service.getAll<%= resource.pascalName %>s(filters);
+    const result = await service.getAll<%= resource.pluralPascal %>(filters);
     return res.status(200).json(new ApiResponse(200, 'Fetched', result).body);
   } catch (err) {
     return next(err);

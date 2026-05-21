@@ -32,7 +32,7 @@ const create<%= resource.pascalName %> = async (payload) => {
 
 <% if (options.crud !== 'insert-only') { -%>
 // ── List (filters, pagination, sorting) ──────────────────────────────────────
-const getAll<%= resource.pascalName %>s = async (filters = {}) => {
+const getAll<%= resource.pluralPascal %> = async (filters = {}) => {
   let query = <%= resource.pascalName %>Model.find({});
 <% resource.fields.forEach(function(f) { -%>
 <% if (['number', 'date', 'datetime', 'range'].includes(f.type)) { -%>
@@ -126,12 +126,12 @@ const delete<%= resource.pascalName %> = async (id) => {
 <% if (options.architecture === 'advanced') { -%>
 
 // ── Advanced: batch operations ───────────────────────────────────────────────
-const bulkCreate<%= resource.pascalName %>s = async (items) => {
+const bulkCreate<%= resource.pluralPascal %> = async (items) => {
   if (!Array.isArray(items)) throw new ApiError(400, 'Items must be an array');
   return <%= resource.pascalName %>Model.insertMany(items);
 };
 
-const bulkUpdate<%= resource.pascalName %>s = async (updates) => {
+const bulkUpdate<%= resource.pluralPascal %> = async (updates) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
@@ -153,13 +153,13 @@ const bulkUpdate<%= resource.pascalName %>s = async (updates) => {
 <% if (options.crud !== 'insert-only') { -%>
 module.exports = {
   create<%= resource.pascalName %>,
-  getAll<%= resource.pascalName %>s,
+  getAll<%= resource.pluralPascal %>,
   get<%= resource.pascalName %>ById,
   update<%= resource.pascalName %>,
   delete<%= resource.pascalName %>,
 <% if (options.architecture === 'advanced') { -%>
-  bulkCreate<%= resource.pascalName %>s,
-  bulkUpdate<%= resource.pascalName %>s,
+  bulkCreate<%= resource.pluralPascal %>,
+  bulkUpdate<%= resource.pluralPascal %>,
 <% } -%>
 };
 <% } else { -%>

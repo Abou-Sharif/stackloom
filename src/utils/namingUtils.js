@@ -64,6 +64,7 @@ const IRREGULAR_PLURALS = {
 const UNCOUNTABLE = new Set([
   "equipment", "information", "rice", "money", "species", "series",
   "fish", "sheep", "deer", "moose", "aircraft", "salmon", "trout",
+  "data",
   "swiss", "chinese", "japanese", "portuguese", "vietnamese",
 ]);
 
@@ -96,8 +97,11 @@ export function pluralize(word) {
     if (/f$/.test(lower)) return word.slice(0, -1) + "ves";
   }
 
-  // Ends with o → add "es" (common pattern)
+  // Ends with vowel + o → add "s" (studio→studios)
   if (/[aeiou]o$/i.test(lower)) return word + "s";
+  // Most consonant + o words take "es" (hero→heroes), but short/foreign
+  // words like photo, piano, memo take just "s".
+  if (/^(photo|piano|memo|auto|kilo|logo|solo|patio|tattoo|casino|pro)$/i.test(word)) return word + "s";
   if (/o$/i.test(lower)) return word + "es";
 
   // Default: add "s"
