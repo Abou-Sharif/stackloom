@@ -33,10 +33,10 @@ Add `--write` to apply safe, low-risk migrations after the compatibility check. 
 ## Start a project
 
 ```bash
-loom init my-app                              # interactive
+loom init my-app                              # interactive (prompts for PM, preset, theme, layout)
 loom init my-app --preset saas --no-install   # non-interactive
 loom new my-app                               # alias for loom init
-cd my-app && pnpm install && pnpm dev
+cd my-app && {pnpm|npm|yarn|bun} dev          # uses your chosen package manager
 ```
 
 ### `loom init` options
@@ -51,11 +51,16 @@ cd my-app && pnpm install && pnpm dev
 | `--extra-modules <list>`  | `users,products,...`                                                               | Include additional backend modules in the starter app                     |
 | `--deploy-targets <list>` | `docker,vercel,railway`                                                            | Generate deployment config for the selected targets                       |
 | `--architecture <level>`  | `lightweight`, `moderate`, `advanced`                                              | Choose the default generated architecture complexity                      |
-| `--no-install`            | n/a                                                                                | Skip `pnpm install` after scaffold creation                               |
+| `--scenario <name>`       | `parking`,`payroll`,`inventory`,`booking`,`delivery`                               | Auto-scaffold a scenario preset after init                                |
+| `--no-install`            | n/a                                                                                | Skip dependency install after scaffold creation                           |
 | `--target <dir>`          | any path                                                                           | Write the new project into a custom directory                             |
 | `--force`                 | n/a                                                                                | Overwrite an existing target directory or continue past validation issues |
 | `--local-template <path>` | path                                                                               | Use a local template tree instead of downloading                          |
 | `--template <name>`       | template key from `config/templates.json` (default: `mern`)                        | Select a template source by name                                          |
+
+> **Package manager** is prompted interactively. Choose from pnpm, npm, yarn, or bun. Your choice is
+> persisted in `.loom/metadata.json` and used by all subsequent commands (`generate`, `finalize`,
+> `doctor`, `cleanup`, `preset`).
 
 ## Interactive project extension
 
@@ -260,7 +265,7 @@ loom finalize
 | `loom env`                | Compare `.env` to `.env.example`                   |
 | `loom env --sync`         | Append missing keys to `.env`                      |
 | `loom check`              | Verify blueprint, anchor, and project health       |
-| `loom doctor`             | Validate local Node, pnpm, and project environment |
+| `loom doctor`             | Validate Node, selected PM, and project environment |
 | `loom rollback`           | Undo the last generation action                    |
 | `loom rollback --force`   | Skip confirmation when rolling back                |
 | `loom rollback --verbose` | Show detailed rollback logs                        |

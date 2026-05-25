@@ -14,6 +14,11 @@ import { default as removeCommand } from "./remove.js";
 import generateResource from "./generate-resource.js";
 import addReportCmd from "./add-report.js";
 import scaffoldCmd from "./scaffold.js";
+import {
+  customizeThemeSet,
+  customizeLayoutSet,
+  customizeUiSet,
+} from "./customize.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,13 +45,42 @@ const THEME_METHODS = [
   { name: "Paste CSS directly", value: "paste" },
 ];
 
+const DESIGN_THEME_CHOICES = [
+  { name: "Executive Blue — crisp, professional palette", value: "executiveBlue" },
+  { name: "Clinic Soft — calm healthcare colors", value: "clinicSoft" },
+  { name: "Studio Elevated — rich, modern accents", value: "studioElevated" },
+  { name: "Operations Dense — bold, data-focused UI", value: "operationsDense" },
+  { name: "Commerce Warm — inviting retail theme", value: "commerceWarm" },
+  { name: "Violet Sanctum — creative, purple-forward palette", value: "violetSanctum" },
+  { name: "Teal Flow — calm modern teal tones", value: "tealFlow" },
+  { name: "Warm Neutral — editorial warm brown palette", value: "warmNeutral" },
+];
+
+const DESIGN_LAYOUT_CHOICES = [
+  { name: "Hybrid SaaS — flexible topbar layout", value: "hybridSaas" },
+  { name: "Sidebar Workspace — productivity-first UI", value: "sidebarWorkspace" },
+  { name: "Topbar Portal — clean enterprise shell", value: "topbarPortal" },
+  { name: "Right Rail Studio — creative workspace layout", value: "rightRailStudio" },
+];
+
+const UI_VARIANT_CHOICES = [
+  { name: "refined — elevated cards, centered modals", value: "refined" },
+  { name: "operations — outline cards, compact modals", value: "operations" },
+  { name: "studio — glass cards, sheet modals", value: "studio" },
+  { name: "commerce — stat cards, wide modals", value: "commerce" },
+  { name: "clinic — soft cards, centered modals", value: "clinic" },
+];
+
 const ACTION_CHOICES = [
   { name: "📦 Add a full-stack resource (fields, routes, pages)", value: "add_resource" },
   { name: "📊 Add an aggregation report", value: "add_report" },
   { name: "🏗️  Scaffold a scenario preset (parking, payroll, etc.)", value: "scaffold" },
   { name: "➕ Add a backend module (deprecated — use resource instead)", value: "add_module" },
   { name: "➕ Add a frontend page", value: "add_page" },
-  { name: "🎨 Import a shadcn theme", value: "add_theme" },
+  { name: "🎨 Change design theme", value: "add_theme" },
+  { name: "🧹 Change layout shell", value: "add_layout" },
+  { name: "🎭 Change UI variant preset", value: "add_ui" },
+  { name: "🎨 Import a shadcn theme (custom CSS)", value: "import_theme" },
   { name: "📦 Generate deploy configs", value: "add_deploy" },
   { name: "🗑️  Remove something", value: "remove" },
   { name: "🔍 Review current plan", value: "review" },
@@ -84,6 +118,9 @@ function summarizeStep(step) {
   if (step.type === "remove") {
     return `  • Remove ${step.resourceType} "${step.name}"`;
   }
+  if (step.type === "customize") {
+    return `  • Change ${step.subtype} → "${step.value}"`;
+  }
   return `  • ${JSON.stringify(step)}`;
 }
 
@@ -97,7 +134,9 @@ function printPlan(steps) {
     console.log(
       step.type === "remove"
         ? chalk.yellow(summarizeStep(step))
-        : chalk.white(summarizeStep(step)),
+        : step.type === "customize"
+          ? chalk.magenta(summarizeStep(step))
+          : chalk.white(summarizeStep(step)),
     ),
   );
 }
@@ -179,13 +218,71 @@ export default async function wizardCmd(options) {
         fields = fieldSpec;
       }
 
+      // ── Relation prompts ──
+      let relations = '';
+      const { addRelations } = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "addRelations",
+          message: "Add belongsTo or hasMany relations?",
+          default: false,
+        },
+      ]);
+      if (addRelations) {
+        const relChunks = [];
+        // belongsTo
+        const { wantBt } = await inquirer.prompt([
+          {
+            type: "confirm",
+            name: "wantBt",
+            message: "Add belongsTo ref fields (e.g. Product belongsTo Category)?",
+            default: false,
+          },
+        ]);
+        if (wantBt) {
+          let moreBt = true;
+          while (moreBt) {
+            const ans = await inquirer.prompt([
+              { type: "input", name: "field", message: "Field name (e.g. department):", validate: (v) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) || "Must be a valid identifier", filter: (v) => (v || "").trim() },
+              { type: "input", name: "model", message: "Target model (PascalCase, e.g. Department):", validate: (v) => /^[A-Z][a-zA-Z0-9]*$/.test((v || "").trim()) || "Use PascalCase", filter: (v) => (v || "").trim() },
+              { type: "confirm", name: "more", message: "Add another belongsTo?", default: false },
+            ]);
+            relChunks.push(`${ans.field}:belongsTo:${ans.model}`);
+            moreBt = ans.more;
+          }
+        }
+        // hasMany
+        const { wantHm } = await inquirer.prompt([
+          {
+            type: "confirm",
+            name: "wantHm",
+            message: "Add hasMany virtual relations (e.g. Category hasMany Products)?",
+            default: false,
+          },
+        ]);
+        if (wantHm) {
+          let moreHm = true;
+          while (moreHm) {
+            const ans = await inquirer.prompt([
+              { type: "input", name: "field", message: "Virtual property name (e.g. products):", validate: (v) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) || "Must be a valid identifier", filter: (v) => (v || "").trim() },
+              { type: "input", name: "model", message: "Child model (PascalCase, e.g. Product):", validate: (v) => /^[A-Z][a-zA-Z0-9]*$/.test((v || "").trim()) || "Use PascalCase", filter: (v) => (v || "").trim() },
+              { type: "input", name: "foreignKey", message: "Foreign key on child (e.g. categoryId):", validate: (v) => /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test((v || "").trim()) || "Must be a valid identifier", filter: (v) => (v || "").trim() },
+              { type: "confirm", name: "more", message: "Add another hasMany?", default: false },
+            ]);
+            relChunks.push(`${ans.field}:hasMany:${ans.model}:${ans.foreignKey}`);
+            moreHm = ans.more;
+          }
+        }
+        relations = relChunks.join(";");
+      }
+
       steps.push({
         type: "generate",
         subtype: "resource",
         name: resourceName,
-        options: { fields, arch: 'moderate', crud: 'full', force: false },
+        options: { fields, relations, arch: 'moderate', crud: 'full', force: false },
       });
-      console.log(chalk.green(`✓ Resource queued: ${resourceName}`));
+      console.log(chalk.green(`✓ Resource queued: ${resourceName}${relations ? ' with relations' : ''}`));
     }
 
     if (action === "add_report") {
@@ -376,6 +473,57 @@ export default async function wizardCmd(options) {
     }
 
     if (action === "add_theme") {
+      const { theme } = await inquirer.prompt([
+        {
+          type: "list",
+          name: "theme",
+          message: "Select a design theme:",
+          choices: DESIGN_THEME_CHOICES,
+        },
+      ]);
+      steps.push({
+        type: "customize",
+        subtype: "theme",
+        value: theme,
+      });
+      console.log(chalk.green(`✓ Theme change queued: ${theme}`));
+    }
+
+    if (action === "add_layout") {
+      const { layout } = await inquirer.prompt([
+        {
+          type: "list",
+          name: "layout",
+          message: "Select a layout shell:",
+          choices: DESIGN_LAYOUT_CHOICES,
+        },
+      ]);
+      steps.push({
+        type: "customize",
+        subtype: "layout",
+        value: layout,
+      });
+      console.log(chalk.green(`✓ Layout change queued: ${layout}`));
+    }
+
+    if (action === "add_ui") {
+      const { ui } = await inquirer.prompt([
+        {
+          type: "list",
+          name: "ui",
+          message: "Select a UI variant preset:",
+          choices: UI_VARIANT_CHOICES,
+        },
+      ]);
+      steps.push({
+        type: "customize",
+        subtype: "ui",
+        value: ui,
+      });
+      console.log(chalk.green(`✓ UI variant change queued: ${ui}`));
+    }
+
+    if (action === "import_theme") {
       const { method } = await inquirer.prompt([
         {
           type: "list",
@@ -565,6 +713,33 @@ export default async function wizardCmd(options) {
         process.chdir(originalCwd);
         spinner.fail(
           `Failed to generate ${step.subtype}: ${planName} — ${err.message}`,
+        );
+      }
+    }
+
+    if (step.type === "customize") {
+      spinner.start(`Applying ${step.subtype}: ${step.value}`);
+      try {
+        process.chdir(projectRoot);
+        switch (step.subtype) {
+          case "theme":
+            await customizeThemeSet(step.value, {});
+            break;
+          case "layout":
+            await customizeLayoutSet(step.value);
+            break;
+          case "ui":
+            await customizeUiSet(step.value);
+            break;
+          default:
+            throw new Error(`Unsupported customize subtype: ${step.subtype}`);
+        }
+        spinner.succeed(`Applied ${step.subtype}: ${step.value}`);
+        process.chdir(originalCwd);
+      } catch (err) {
+        process.chdir(originalCwd);
+        spinner.fail(
+          `Failed to apply ${step.subtype}: ${step.value} — ${err.message}`,
         );
       }
     }

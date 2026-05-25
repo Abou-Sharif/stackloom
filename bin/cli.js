@@ -135,11 +135,6 @@ const resourceOptions = (cmd) =>
       "resource",
     )
     .option(
-      "--arch <level>",
-      "Architecture: lightweight|moderate|advanced",
-      "moderate",
-    )
-    .option(
       "--architecture <level>",
       "Architecture: lightweight|moderate|advanced",
       "moderate",
@@ -401,6 +396,19 @@ customizeCmd
   .option("--file <path>", "Path to CSS file with rules to inject")
   .option("--css <rules>", "CSS rules string directly")
   .action(customize.customizeCssSet);
+
+// ── Component ──
+const componentCmd = customizeCmd
+  .command("component")
+  .description("Component layout variant operations");
+componentCmd
+  .command("set <component> [variant]")
+  .description("Switch a component to a specific layout variant (overwrites the component file)")
+  .action(customize.customizeComponentSet);
+componentCmd
+  .command("list")
+  .description("List all components and their available layout variants")
+  .action(customize.customizeComponentList);
 
 // ── Discovery helpers ──
 customizeCmd

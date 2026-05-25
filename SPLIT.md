@@ -83,7 +83,7 @@ pipeline, and the anchor injector. The split becomes a *move*, not a *rewrite*.
 ```bash
 # stackloom (CLI)
 cd stackloom
-pnpm install
+pnpm install   # or npm install / yarn / bun
 pnpm test
 npm version patch
 npm publish --access public

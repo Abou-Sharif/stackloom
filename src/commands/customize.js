@@ -1,12 +1,55 @@
 #!/usr/bin/env node
 
 import path from "path";
+import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { execSync } from "child_process";
 import os from "os";
 import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
+
+/**
+ * Extract the active preset name from app-preset.js code.
+ * Returns the name (e.g. "saas", "clinic") or null if already inline.
+ */
+function getActivePresetName(code) {
+  const m = code.match(/^export const appPreset\s*=\s*presetVariants\.(\w+);/m);
+  return m ? m[1] : null;
+}
+
+/**
+ * Modify a key-value setting within the ACTIVE preset's definition block.
+ * Handles both `presetVariants.XXXX` references and inline appPreset objects.
+ *
+ * @param {string} code - Raw app-preset.js source
+ * @param {string} key   - Config key to modify (e.g. "theme", "layout", "brand")
+ * @param {string} replacePattern - Regex that matches the old value within the active section
+ * @param {string} replacement    - Replacement string (capture groups from replacePattern preserved)
+ * @returns {string} Modified source
+ */
+function modifyActivePreset(code, key, replacePattern, replacement) {
+  const active = getActivePresetName(code);
+  if (active) {
+    // Preset variant reference — scope the replacement to the active preset block
+    const scoped = new RegExp(
+      `(${active}:\\s*\\{[\\s\\S]*?${key}:\\s*)${replacePattern.source || replacePattern}`,
+    );
+    if (scoped.test(code)) {
+      return code.replace(scoped, `$1${replacement}`);
+    }
+    // Fallback: try whole-file pattern (some keys live in baseContent)
+    const fallback = new RegExp(
+      `(${key}:\\s*)${replacePattern.source || replacePattern}`,
+    );
+    return code.replace(fallback, `$1${replacement}`);
+  }
+  // Inline — modify directly
+  const inline = new RegExp(
+    `(${key}:\\s*)${replacePattern.source || replacePattern}`,
+  );
+  return code.replace(inline, `$1${replacement}`);
+}
 
 const DESIGN_THEMES = [
   { name: "executiveBlue", desc: "Professional blue — balanced SaaS default" },
@@ -31,6 +74,98 @@ const DATA_TEMPLATES = [
   { name: "denseOps", desc: "Four columns, compact density, table on desktop" },
   { name: "editorial", desc: "Three columns, spacious, centered, no pagination" },
   { name: "commerce", desc: "Four columns, comfortable, three product cards" },
+];
+
+const COMPONENTS = [
+  {
+    name: "sidebar",
+    desc: "Navigation sidebar",
+    variants: [
+      { name: "default", desc: "Slide-over on mobile, inline on desktop" },
+      { name: "mini", desc: "Icon-only (4rem), expand labels on hover" },
+      { name: "floating", desc: "Detached rounded card with shadow" },
+      { name: "drawer", desc: "Always overlay drawer from side" },
+    ],
+    target: "frontend/src/components/layout/Sidebar.jsx",
+  },
+  {
+    name: "navbar",
+    desc: "Top navigation bar",
+    variants: [
+      { name: "default", desc: "Sticky top bar, brand left, nav center" },
+      { name: "floating", desc: "Detached rounded bar with backdrop-blur" },
+      { name: "minimal", desc: "Thin bar, logo + user menu only" },
+      { name: "centered", desc: "Centered logo, nav links below" },
+    ],
+    target: "frontend/src/components/layout/Navbar.jsx",
+  },
+  {
+    name: "footer",
+    desc: "Page footer",
+    variants: [
+      { name: "default", desc: "Border-top with brand name" },
+      { name: "minimal", desc: "Tiny copyright line only" },
+      { name: "detailed", desc: "Multi-column with links and social icons" },
+    ],
+    target: "frontend/src/components/layout/Footer.jsx",
+  },
+  {
+    name: "card",
+    desc: "Card container component",
+    configOnly: true,
+    variants: [
+      { name: "elevated", desc: "White bg with shadow, rounded" },
+      { name: "glass", desc: "Frosted glass, backdrop-blur" },
+      { name: "bordered", desc: "Clean border, no shadow" },
+      { name: "stat", desc: "Large value, gradient background" },
+      { name: "flat", desc: "No border or shadow, tinted bg" },
+    ],
+  },
+  {
+    name: "modal",
+    desc: "Modal dialog component",
+    configOnly: true,
+    variants: [
+      { name: "centered", desc: "Standard centered dialog (max-w-lg)" },
+      { name: "wide", desc: "Wider dialog for forms (max-w-3xl)" },
+      { name: "sheet", desc: "Bottom sheet that slides up" },
+      { name: "compact", desc: "Small modal for confirmations" },
+    ],
+  },
+  {
+    name: "button",
+    desc: "Button component",
+    configOnly: true,
+    variants: [
+      { name: "solid", desc: "Filled background, standard CTA" },
+      { name: "outline", desc: "Border-only, transparent bg" },
+      { name: "ghost", desc: "No border or bg, minimal hover" },
+      { name: "gradient", desc: "Gradient background" },
+      { name: "pill", desc: "Fully rounded, friendly appearance" },
+    ],
+  },
+  {
+    name: "formLayout",
+    desc: "Form field layout",
+    variants: [
+      { name: "stacked", desc: "Labels above inputs, one column" },
+      { name: "inline", desc: "Labels beside inputs on same row" },
+      { name: "floating", desc: "Labels float inside input border" },
+      { name: "multiColumn", desc: "Grid with 2-3 columns" },
+    ],
+    target: "frontend/src/components/layout/FormLayout.jsx",
+  },
+  {
+    name: "dataDisplay",
+    desc: "Tabular data display",
+    variants: [
+      { name: "standard", desc: "Table desktop, cards mobile" },
+      { name: "dense", desc: "Compact rows, smaller text" },
+      { name: "cardView", desc: "Always rendered as cards" },
+      { name: "striped", desc: "Alternating row colors" },
+    ],
+    target: "frontend/src/components/data/ResponsiveRecordView.jsx",
+  },
 ];
 
 const UI_VARIANTS = [
@@ -147,10 +282,20 @@ export async function customizeThemeSet(theme, _options) {
 
   const themeNames = DESIGN_THEMES.map((t) => t.name);
   if (themeNames.includes(selectedTheme)) {
-    presetCode = presetCode.replace(
-      /theme:\s*designThemes\.\w+/,
-      `theme: designThemes.${selectedTheme}`,
+    const before = presetCode;
+    presetCode = modifyActivePreset(
+      presetCode,
+      "theme",
+      /designThemes\.\w+/,
+      `designThemes.${selectedTheme}`,
     );
+    if (presetCode === before) {
+      // Fallback: handle custom/imported themes via installShadcnDesignPreset
+      presetCode = presetCode.replace(
+        /(theme:\s*)installShadcnDesignPreset\([\s\S]*?\)/,
+        `$1designThemes.${selectedTheme}`,
+      );
+    }
     await fs.writeFile(getPresetPath(projectRoot), presetCode);
     spinner.succeed(`Theme set to "${selectedTheme}"`);
   } else {
@@ -349,7 +494,7 @@ export async function customizeThemePresetApply(code, options) {
       presetCode = presetCode.replace(/theme:\s*designThemes\.\w+/, themeReplacement);
     } else if (presetCode.includes("installShadcnDesignPreset")) {
       presetCode = presetCode.replace(
-        /installShadcnDesignPreset\([^)]+(?:\)[^)])*\)/,
+        /installShadcnDesignPreset\([\s\S]*?\)/,
         themeReplacement,
       );
     }
@@ -495,9 +640,11 @@ export async function customizeLayoutSet(layout) {
 
   const layoutNames = DESIGN_LAYOUTS.map((l) => l.name);
   if (layoutNames.includes(selectedLayout)) {
-    presetCode = presetCode.replace(
-      /layout:\s*designLayouts\.\w+/,
-      `layout: designLayouts.${selectedLayout}`,
+    presetCode = modifyActivePreset(
+      presetCode,
+      "layout",
+      /designLayouts\.\w+/,
+      `designLayouts.${selectedLayout}`,
     );
     await fs.writeFile(getPresetPath(projectRoot), presetCode);
     spinner.succeed(`Layout set to "${selectedLayout}"`);
@@ -515,25 +662,57 @@ export async function customizeBrandSet(options) {
   const projectRoot = process.cwd();
   let presetCode = await ensureProject(projectRoot);
 
-  const name = options.name || options.n;
-  const tagline = options.tagline || options.t;
+  let name = options.name || options.n;
+  let tagline = options.tagline || options.t;
 
   if (!name && !tagline) {
-    console.log(chalk.red("✖  Must provide at least --name or --tagline"));
-    process.exit(1);
+    const answers = await inquirer.prompt([
+      { type: "input", name: "name", message: "Brand name:", default: presetCode.match(/name:\s*"([^"]+)"/)?.[1] || "" },
+      { type: "input", name: "tagline", message: "Tagline:", default: presetCode.match(/tagline:\s*"([^"]+)"/)?.[1] || "" },
+    ]);
+    name = answers.name;
+    tagline = answers.tagline;
+    if (!name && !tagline) {
+      console.log(chalk.red("✖  Must provide at least --name or --tagline"));
+      process.exit(1);
+    }
   }
 
+  const esc = (s) => String(s).replace(/["\\]/g, "\\$&");
+  const active = getActivePresetName(presetCode);
+
   if (name) {
-    presetCode = presetCode.replace(
-      /brand:\s*\{\s*name:\s*["'][^"']+["']/,
-      `brand: { name: "${name}"`,
-    );
+    const safe = esc(name);
+    if (active) {
+      const re = new RegExp(
+        `(${active}:\\s*\\{[\\s\\S]*?brand:\\s*\\{\\s*)name:\\s*"[^"]+"`,
+      );
+      presetCode = re.test(presetCode)
+        ? presetCode.replace(re, `$1name: "${safe}"`)
+        : presetCode.replace(/brand:\s*\{\s*name:\s*"[^"]+"/, `brand: { name: "${safe}"`);
+    } else {
+      presetCode = presetCode.replace(
+        /(appPreset\s*=\s*\{[\s\S]*?brand:\s*\{\s*)name:\s*"[^"]+"/,
+        `$1name: "${safe}"`,
+      );
+    }
   }
+
   if (tagline) {
-    presetCode = presetCode.replace(
-      /tagline:\s*["'][^"']+["']/,
-      `tagline: "${tagline}"`,
-    );
+    const safe = esc(tagline);
+    if (active) {
+      const re = new RegExp(
+        `(${active}:\\s*\\{[\\s\\S]*?brand:\\s*\\{[\\s\\S]*?)tagline:\\s*"[^"]+"`,
+      );
+      presetCode = re.test(presetCode)
+        ? presetCode.replace(re, `$1tagline: "${safe}"`)
+        : presetCode.replace(/(brand:\s*\{[\s\S]*?)tagline:\s*"[^"]+"/, `$1tagline: "${safe}"`);
+    } else {
+      presetCode = presetCode.replace(
+        /(appPreset\s*=\s*\{[\s\S]*?brand:\s*\{[\s\S]*?)tagline:\s*"[^"]+"/,
+        `$1tagline: "${safe}"`,
+      );
+    }
   }
 
   await fs.writeFile(getPresetPath(projectRoot), presetCode);
@@ -570,9 +749,11 @@ export async function customizeDataSet(template) {
 
   const templateNames = DATA_TEMPLATES.map((d) => d.name);
   if (templateNames.includes(selectedTemplate)) {
-    presetCode = presetCode.replace(
-      /dataDisplay:\s*dataDisplayTemplates\.\w+/,
-      `dataDisplay: dataDisplayTemplates.${selectedTemplate}`,
+    presetCode = modifyActivePreset(
+      presetCode,
+      "dataDisplay",
+      /dataDisplayTemplates\.\w+/,
+      `dataDisplayTemplates.${selectedTemplate}`,
     );
     await fs.writeFile(getPresetPath(projectRoot), presetCode);
     spinner.succeed(`Data display template set to "${selectedTemplate}"`);
@@ -614,16 +795,27 @@ export async function customizeUiSet(variant) {
         `import { dataDisplayTemplates } from "./data-display-templates";\nimport { uiVariants } from "./ui-variants";`,
       );
     }
-    if (/ui:\s*uiVariants\.\w+/.test(presetCode)) {
-      presetCode = presetCode.replace(
-        /ui:\s*uiVariants\.\w+/,
-        `ui: uiVariants.${selected}`,
-      );
-    } else {
-      presetCode = presetCode.replace(
-        /(dataDisplay:\s*dataDisplayTemplates\.\w+,)/,
-        `$1\n    ui: uiVariants.${selected},`,
-      );
+    // Use modifyActivePreset to target the active preset's ui key
+    const before = presetCode;
+    presetCode = modifyActivePreset(
+      presetCode,
+      "ui",
+      /uiVariants\.\w+/,
+      `uiVariants.${selected}`,
+    );
+    // Fallback: if scoped replacement didn't work, try adding ui key
+    if (presetCode === before) {
+      if (/ui:\s*uiVariants\.\w+/.test(presetCode)) {
+        presetCode = presetCode.replace(
+          /ui:\s*uiVariants\.\w+/,
+          `ui: uiVariants.${selected}`,
+        );
+      } else {
+        presetCode = presetCode.replace(
+          /(dataDisplay:\s*dataDisplayTemplates\.\w+,)/,
+          `$1\n    ui: uiVariants.${selected},`,
+        );
+      }
     }
     await fs.writeFile(getPresetPath(projectRoot), presetCode);
     spinner.succeed(`UI variant set to "${selected}"`);
@@ -799,6 +991,154 @@ export function customizeListFonts() {
   );
 }
 
+// ── COMPONENT ──
+/**
+ * List components and their available layout variants.
+ */
+export function customizeComponentList() {
+  console.log(chalk.cyan("\nAvailable components and their layout variants:\n"));
+  COMPONENTS.forEach((comp) => {
+    console.log(`  ${chalk.white("•")} ${chalk.bold(comp.name)} — ${chalk.dim(comp.desc)}`);
+    comp.variants.forEach((v) =>
+      console.log(`    ${chalk.green("✚")} ${v.name} — ${chalk.dim(v.desc)}`),
+    );
+    console.log("");
+  });
+  console.log(chalk.dim("  Set: loom customize component set <component> <variant>\n"));
+}
+
+/**
+ * Set a component to a specific layout variant (scaffold-time rewrite).
+ * @param {string} componentName
+ * @param {string} variantName
+ */
+export async function customizeComponentSet(componentName, variantName) {
+  const spinner = ora();
+  const projectRoot = process.cwd();
+  await ensureProject(projectRoot);
+
+  // Resolve component definition
+  const component = COMPONENTS.find((c) => c.name === componentName);
+  if (!component) {
+    const names = COMPONENTS.map((c) => c.name).join(", ");
+    spinner.fail(`Unknown component "${componentName}". Available: ${names}`);
+    return;
+  }
+
+  // Interactive picker if no variant specified
+  let selectedVariant = variantName;
+  if (!selectedVariant) {
+    const answers = await inquirer.prompt([
+      {
+        type: "list",
+        name: "variant",
+        message: `Select layout for "${componentName}":`,
+        choices: component.variants.map((v) => ({
+          name: `${v.name} — ${v.desc}`,
+          value: v.name,
+        })),
+      },
+    ]);
+    selectedVariant = answers.variant;
+  }
+
+  // Validate variant
+  const variantDef = component.variants.find((v) => v.name === selectedVariant);
+  if (!variantDef) {
+    const names = component.variants.map((v) => v.name).join(", ");
+    spinner.fail(`Unknown variant "${selectedVariant}" for "${componentName}". Available: ${names}`);
+    return;
+  }
+
+  // Config-only components (Card, Modal, Button) skip file overwrite
+  if (component.configOnly) {
+    spinner.succeed(`Component "${componentName}" set to "${selectedVariant}" (config-only — reads at runtime)`);
+  } else {
+    // Resolve variant source paths
+    const templatesRoot = path.join(projectRoot, "frontend/src/variants");
+    const componentPascal = componentName.charAt(0).toUpperCase() + componentName.slice(1);
+    let variantFile = path.join(templatesRoot, componentPascal, `${selectedVariant}.jsx`);
+
+    // Fallback to loom package's bundled variants
+    if (!fs.existsSync(variantFile)) {
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const pkgVariantsRoot = path.resolve(__dirname, "../../src/variants");
+      variantFile = path.join(pkgVariantsRoot, componentPascal, `${selectedVariant}.jsx`);
+    }
+
+    if (!fs.existsSync(variantFile)) {
+      spinner.fail(`Variant source not found for "${componentName}/${selectedVariant}". Run \`loom upgrade\` to get the latest templates.`);
+      return;
+    }
+
+    const targetFile = path.join(projectRoot, component.target);
+    const backupPath = targetFile + ".bak";
+    if (fs.existsSync(targetFile)) {
+      await fs.copy(targetFile, backupPath).catch(() => {});
+    }
+
+    const variantContent = await fs.readFile(variantFile, "utf-8");
+    await fs.writeFile(targetFile, variantContent);
+    // Remove backup on success
+    await fs.remove(backupPath).catch(() => {});
+    spinner.succeed(`Component "${componentName}" set to variant "${selectedVariant}"`);
+  }
+
+  // Update app-preset.js with the selection (scoped to active preset)
+  try {
+    let presetCode = await fs.readFile(getPresetPath(projectRoot), "utf-8");
+    const active = getActivePresetName(presetCode);
+    const newEntry = `${componentName}: "${selectedVariant}"`;
+
+    if (active) {
+      // Scoped to active preset
+      const scopeRe = new RegExp(
+        `(${active}:\\s*\\{[\\s\\S]*?componentLayouts:\\s*\\{)`,
+      );
+      if (scopeRe.test(presetCode)) {
+        const entryRe = new RegExp(
+          `(${active}:\\s*\\{[\\s\\S]*?componentLayouts:\\s*\\{[\\s\\S]*?)${componentName}:\\s*"[^"]+"`,
+        );
+        if (entryRe.test(presetCode)) {
+          presetCode = presetCode.replace(entryRe, `$1${newEntry}`);
+        } else {
+          presetCode = presetCode.replace(
+            scopeRe,
+            `$1\n    ${newEntry},`,
+          );
+        }
+      } else {
+        // componentLayouts not present in active preset — add it
+        const uiRe = new RegExp(
+          `(${active}:\\s*\\{[\\s\\S]*?ui:\\s*uiVariants\\.\\w+,)`,
+        );
+        presetCode = uiRe.test(presetCode)
+          ? presetCode.replace(uiRe, `$1\n    componentLayouts: {\n      ${newEntry},\n    }`)
+          : presetCode + `\n    componentLayouts: {\n      ${newEntry},\n    },`;
+      }
+    } else {
+      // Inline — modify the appPreset object directly
+      if (presetCode.includes("componentLayouts:")) {
+        const regex = new RegExp(`${componentName}:\\s*"[^"]+"`);
+        presetCode = regex.test(presetCode)
+          ? presetCode.replace(regex, newEntry)
+          : presetCode.replace(
+              /(componentLayouts:\s*\{)/,
+              `$1\n    ${newEntry},`,
+            );
+      } else {
+        presetCode = presetCode.replace(
+          /(ui:\s*uiVariants\.\w+,)/,
+          `$1\n    componentLayouts: {\n      ${newEntry},\n    },`,
+        );
+      }
+    }
+    await fs.writeFile(getPresetPath(projectRoot), presetCode);
+  } catch (e) {
+    console.warn(chalk.yellow(`⚠ Preset config update skipped: ${e.message}`));
+  }
+}
+
 export default {
   customizeThemeSet,
   customizeThemeImport,
@@ -810,11 +1150,13 @@ export default {
   customizeBrandSet,
   customizeDataSet,
   customizeUiSet,
+  customizeComponentSet,
   customizeFontSet,
   customizeCssSet,
   customizeListThemes,
   customizeListLayouts,
   customizeListData,
   customizeListUi,
+  customizeComponentList,
   customizeListFonts,
 };

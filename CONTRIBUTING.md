@@ -7,7 +7,7 @@ Welcome to the CLI contributor guide. This document explains how to add features
 Clone the repository and install dependencies:
 
 ```bash
-pnpm install
+pnpm install   # or npm install / yarn / bun
 node bin/cli.js --help
 pnpm link --global
 loom --help
@@ -34,7 +34,7 @@ loom --help
 
 We use **Vitest** for unit tests and a custom **Smoke Test** for end-to-end validation.
 
-- **Unit Tests**: Place in `src/__tests__/` or subsystem `__tests__/` directories. Run with `pnpm test`.
+- **Unit Tests**: Place in `src/__tests__/` or subsystem `__tests__/` directories. Run with `pnpm test` (or the test script of your PM).
 - **Smoke Tests**: Run `pnpm test:smoke` or `node test-smoke.js`.
 
 ## 5. Coding Principles

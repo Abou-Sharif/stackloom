@@ -83,9 +83,9 @@ without touching callers.
 
 ## Local development & testing
 
-- Run `pnpm install` at the repo root.
+- Run `pnpm install` (or `npm install` / `yarn` / `bun`) at the package root.
 - Use `node bin/cli.js --help` to verify the CLI entrypoint.
-- Use `pnpm link --global` and `loom --help` for local command testing.
+- Use `pnpm link --global` (or `npm link -g`) for local command testing.
 - All new commands should use the `Reporter` instead of raw `console.*`/`chalk`/`ora`:
   `const reporter = reporterFromOptions({ ...program.opts(), ...options })`
 
@@ -119,6 +119,8 @@ pnpm test                                    # full vitest suite
 pnpm test:smoke                              # contract smoke test for the MERN template
 node node_modules/vitest/vitest.mjs run src/engine   # one subsystem
 ```
+
+> Replace `pnpm` with your package manager of choice above.
 
 ## Roadmap
 

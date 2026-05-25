@@ -150,6 +150,8 @@ export class FieldDefinition {
       case "date":
       case "datetime":
         rule += "date()";
+        if (v.min !== undefined) rule += `.min('${v.min}')`;
+        if (v.max !== undefined) rule += `.max('${v.max}')`;
         break;
       case "email":
         rule += "string().email()";
@@ -195,6 +197,11 @@ export class FieldDefinition {
     if (this.type === "number" || this.type === "range") {
       if (v.min !== undefined) c.push(`min: ${v.min}`);
       if (v.max !== undefined) c.push(`max: ${v.max}`);
+    }
+
+    if (this.type === "date" || this.type === "datetime") {
+      if (v.min !== undefined) c.push(`min: '${v.min}'`);
+      if (v.max !== undefined) c.push(`max: '${v.max}'`);
     }
 
     if (this.type === "string" || this.type === "text") {
@@ -375,8 +382,8 @@ export function parseFieldSpec(spec) {
       parts.forEach((part) => {
         if (part.includes("=")) {
           const [k, v] = part.split("=");
-          if (k === "min") field.validation.min = parseFloat(v);
-          else if (k === "max") field.validation.max = parseFloat(v);
+          if (k === "min") field.validation.min = field.type === "date" || field.type === "datetime" ? v : parseFloat(v);
+          else if (k === "max") field.validation.max = field.type === "date" || field.type === "datetime" ? v : parseFloat(v);
           else if (k === "minLength") field.validation.minLength = parseInt(v);
           else if (k === "maxLength") field.validation.maxLength = parseInt(v);
           else if (k === "pattern") field.validation.pattern = v;
@@ -395,9 +402,13 @@ export function parseFieldSpec(spec) {
       if (rule === "required") field.validation.required = true;
       else if (rule === "unique") field.validation.unique = true;
       else if (rule.startsWith("min="))
-        field.validation.min = parseFloat(rule.split("=")[1]);
+        field.validation.min = field.type === "date" || field.type === "datetime"
+          ? rule.split("=").slice(1).join("=")
+          : parseFloat(rule.split("=")[1]);
       else if (rule.startsWith("max="))
-        field.validation.max = parseFloat(rule.split("=")[1]);
+        field.validation.max = field.type === "date" || field.type === "datetime"
+          ? rule.split("=").slice(1).join("=")
+          : parseFloat(rule.split("=")[1]);
       else if (rule.startsWith("minLength="))
         field.validation.minLength = parseInt(rule.split("=")[1]);
       else if (rule.startsWith("maxLength="))

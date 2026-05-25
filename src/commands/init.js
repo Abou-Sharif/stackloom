@@ -13,6 +13,7 @@ import {
   validateMernTemplate,
   validateTemplateContract,
 } from "../utils/templateValidator.js";
+import { normalizePm, runInDirBare, convertRootScripts, packageManagerField, installCmd } from "../utils/package-manager.js";
 import scaffoldCmd from "./scaffold.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -350,6 +351,21 @@ export default async function initCmd(projectName, options) {
     });
   }
 
+  if (!config.packageManager) {
+    questions.push({
+      type: "list",
+      name: "packageManager",
+      message: "Package manager:",
+      choices: [
+        { name: "pnpm (recommended)", value: "pnpm" },
+        { name: "npm", value: "npm" },
+        { name: "yarn", value: "yarn" },
+        { name: "bun", value: "bun" },
+      ],
+      default: "pnpm",
+    });
+  }
+
   if (config.install === undefined) {
     questions.push({
       type: "confirm",
@@ -375,6 +391,7 @@ export default async function initCmd(projectName, options) {
     }
   }
   const finalConfig = { ...config, ...interactiveAnswers };
+  finalConfig.packageManager = normalizePm(finalConfig.packageManager || "pnpm");
 
   const presetDefaults = {
     saas: { brand: "MERN Starter", tagline: "Secure app foundation" },
@@ -409,10 +426,10 @@ export default async function initCmd(projectName, options) {
         );
       }
       spinner.start("Copying local template...");
+      const SKIP_DIRS = new Set(["node_modules", ".next", "dist", "build", ".cache", ".git", "tmp"]);
       await fs.copy(source.path, outDir, {
         overwrite: true,
-        // skip node_modules — local-dev templates often have one
-        filter: (src) => !src.split(path.sep).includes("node_modules"),
+        filter: (src) => !SKIP_DIRS.has(src.split(path.sep).pop()),
       });
       spinner.succeed("Template copied");
     } else {
@@ -516,6 +533,7 @@ export default async function initCmd(projectName, options) {
   try {
     await applyPresetCustomization(outDir, finalConfig);
     await syncProjectDependencies(outDir);
+    await cleanupGeneratedProject(outDir, finalConfig);
 
     const sanitizePath = path.join(
       outDir,
@@ -543,6 +561,31 @@ export default async function initCmd(projectName, options) {
       }
     }
 
+    // Write package-manager selection to metadata
+    const metaPath = path.join(outDir, ".loom", "metadata.json");
+    if (await fs.pathExists(metaPath)) {
+      try {
+        const meta = JSON.parse(await fs.readFile(metaPath, "utf-8"));
+        meta.packageManager = finalConfig.packageManager;
+        await fs.writeFile(metaPath, JSON.stringify(meta, null, 2) + "\n");
+      } catch {
+        // non-fatal
+      }
+    }
+
+    // Convert root package.json scripts from pnpm to the selected PM
+    const rootPkgPath = path.join(outDir, "package.json");
+    if (await fs.pathExists(rootPkgPath)) {
+      try {
+        const rootPkg = JSON.parse(await fs.readFile(rootPkgPath, "utf-8"));
+        rootPkg.scripts = convertRootScripts(finalConfig.packageManager, rootPkg.scripts);
+        rootPkg.packageManager = packageManagerField(finalConfig.packageManager);
+        await fs.writeFile(rootPkgPath, JSON.stringify(rootPkg, null, 2) + "\n");
+      } catch {
+        // non-fatal
+      }
+    }
+
     spinner.succeed("Project customized");
   } catch (err) {
     spinner.fail("Customization failed");
@@ -553,6 +596,7 @@ export default async function initCmd(projectName, options) {
 
   // 7. Install dependencies — per subdirectory, only if that subdir has a package.json
   const wantInstall = finalConfig.installDeps || finalConfig.install;
+  const pm = finalConfig.packageManager || "pnpm";
   if (wantInstall) {
     for (const sub of ["backend", "frontend"]) {
       const subPath = path.join(outDir, sub);
@@ -560,15 +604,15 @@ export default async function initCmd(projectName, options) {
       if (!fs.existsSync(subPkg)) {
         console.log(
           chalk.yellow(
-            `⚠ Skipping pnpm install in ${sub} — package.json not found.\n` +
-              `  Run manually: pnpm -C "${subPath}" install`,
+            `⚠ Skipping ${pm} install in ${sub} — package.json not found.\n` +
+              `  Run manually: ${runInDirBare(pm, '"' + subPath + '"', "install").replace('"', "").replace('"', "")}`,
           ),
         );
         continue;
       }
       log(chalk.cyan(`\n━> Installing dependencies in ${sub}...`));
       try {
-        execSync("pnpm install --no-frozen-lockfile", {
+        execSync(`${installCmd(pm)} --no-frozen-lockfile`, {
           shell: true,
           cwd: subPath,
           stdio: quiet ? "pipe" : "inherit",
@@ -580,15 +624,15 @@ export default async function initCmd(projectName, options) {
         const stdout = err.stdout ? err.stdout.toString() : "";
         console.warn(
           chalk.yellow(
-            `⚠ pnpm install failed in ${sub}.\n` +
+            `⚠ ${pm} install failed in ${sub}.\n` +
               (stdout
                 ? `  stdout: ${stdout.split("\n").slice(-5).join("\n  ")}\n`
                 : "") +
               (stderr
                 ? `  stderr: ${stderr.split("\n").slice(-5).join("\n  ")}\n`
                 : "") +
-              `  Failed command: pnpm install --no-frozen-lockfile\n` +
-              `  Run manually: pnpm -C "${subPath}" install`,
+              `  Failed command: ${installCmd(pm)} --no-frozen-lockfile\n` +
+              `  Run manually: ${runInDirBare(pm, subPath, "install")}`,
           ),
         );
       }
@@ -661,8 +705,8 @@ export default async function initCmd(projectName, options) {
   log(chalk.white("Next steps:"));
   log(chalk.white(`  cd ${resolvedProjectName}`));
   log(chalk.white(`  cp .env.example .env        # fill in your values`));
-  log(chalk.white(`  pnpm -C backend dev`));
-  log(chalk.white(`  pnpm -C frontend dev`));
+  log(chalk.white(`  ${runInDirBare(pm, "backend", "dev")}`));
+  log(chalk.white(`  ${runInDirBare(pm, "frontend", "dev")}`));
   log("");
   log(chalk.gray("Docs: https://stackloom.dev/docs/getting-started"));
 }
@@ -738,9 +782,10 @@ async function applyPresetCustomization(projectRoot, config) {
     throw new Error(`cannot read ${presetPath}: ${err.message}`);
   }
 
+  function esc(s) { return String(s).replace(/["\\]/g, "\\$&"); }
   const presetVal =
     config.preset === "custom"
-      ? `{ ...baseContent, brand: { name: "${config.brandName}", tagline: "${config.tagline}" }, layout: designLayouts.${config.layout}, theme: designThemes.${config.theme} }`
+      ? `{ ...baseContent, brand: { name: "${esc(config.brandName)}", tagline: "${esc(config.tagline)}" }, layout: designLayouts.${config.layout}, theme: designThemes.${config.theme} }`
       : `presetVariants.${config.preset || "saas"}`;
 
   // FIX: anchor to start-of-line in multiline mode so the regex never matches
@@ -787,6 +832,262 @@ async function syncProjectDependencies(outDir) {
     }
   }
   if (changed) await fs.writeJSON(frontendPkgPath, pkg, { spaces: 2 });
+}
+
+// ─── Post-init cleanup: prune template to config-matched subset ─────
+
+export const COMPONENT_DIR_MAP = {
+  sidebar: "Sidebar",
+  navbar: "Navbar",
+  footer: "Footer",
+  card: "Card",
+  modal: "Modal",
+  button: "Button",
+  formLayout: "FormLayout",
+  dataDisplay: "DataDisplay",
+};
+
+export const BASE_COMPONENT_LAYOUTS = {
+  sidebar: "default",
+  navbar: "default",
+  footer: "default",
+  card: "elevated",
+  modal: "centered",
+  button: "solid",
+  formLayout: "stacked",
+  dataDisplay: "standard",
+};
+
+export const PRESET_LAYOUT_OVERRIDES = {
+  saas: {},
+  clinic: {},
+  studio: {
+    sidebar: "floating",
+    navbar: "floating",
+    footer: "detailed",
+    card: "glass",
+    modal: "sheet",
+    button: "gradient",
+    formLayout: "stacked",
+    dataDisplay: "standard",
+  },
+  operations: {
+    sidebar: "mini",
+    navbar: "minimal",
+    footer: "minimal",
+    card: "flat",
+    modal: "compact",
+    button: "outline",
+    formLayout: "inline",
+    dataDisplay: "dense",
+  },
+  commerce: {
+    sidebar: "default",
+    navbar: "centered",
+    footer: "detailed",
+    card: "stat",
+    modal: "wide",
+    button: "pill",
+    formLayout: "multiColumn",
+    dataDisplay: "cardView",
+  },
+  custom: {},
+};
+
+export function variantValueToFilename(value) {
+  return value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase() + ".jsx";
+}
+
+/**
+ * After template copy and preset assignment, prune generated project to
+ * only the files and code that match the chosen configuration:
+ *   1. Delete unused variant files (keep only the active variant per component)
+ *   2. Strip non-active preset blocks from app-preset.js
+ *   3. Remove shadcnPaste-only imports and the demoShadcnCss variable
+ */
+export async function cleanupGeneratedProject(projectRoot, config) {
+  const presetName = config.preset || "saas";
+  const frontendRoot = path.join(projectRoot, "frontend");
+  const variantsRoot = path.join(frontendRoot, "src", "variants");
+  const presetPath = path.join(frontendRoot, "src", "config", "app-preset.js");
+
+  // ── 0. Remove unused frontend dependencies ──────────────────────
+  const fePkgPath = path.join(frontendRoot, "package.json");
+  if (await fs.pathExists(fePkgPath)) {
+    const FRONTEND_UNUSED_DEPS = ["@tanstack/react-query", "@radix-ui/react-dropdown-menu"];
+    try {
+      const pkg = await fs.readJSON(fePkgPath);
+      let changed = false;
+      for (const name of FRONTEND_UNUSED_DEPS) {
+        if (pkg.dependencies && pkg.dependencies[name]) {
+          delete pkg.dependencies[name];
+          changed = true;
+        }
+      }
+      if (changed) await fs.writeJSON(fePkgPath, pkg, { spaces: 2 });
+    } catch {
+      // non-fatal — skip
+    }
+  }
+
+  // ── 0b. Remove unused backend dependencies ──────────────────────
+  const bePkgPath = path.join(projectRoot, "backend", "package.json");
+  if (await fs.pathExists(bePkgPath)) {
+    const BACKEND_UNUSED_DEPS = ["express-validator", "k6", "snyk"];
+    try {
+      const pkg = await fs.readJSON(bePkgPath);
+      let changed = false;
+      for (const name of BACKEND_UNUSED_DEPS) {
+        if (pkg.dependencies && pkg.dependencies[name]) {
+          delete pkg.dependencies[name];
+          changed = true;
+        }
+        if (pkg.devDependencies && pkg.devDependencies[name]) {
+          delete pkg.devDependencies[name];
+          changed = true;
+        }
+      }
+      if (changed) await fs.writeJSON(bePkgPath, pkg, { spaces: 2 });
+    } catch {
+      // non-fatal — skip
+    }
+  }
+
+  // ── 1. Remove unused variant files ──────────────────────────────
+  const overrides = PRESET_LAYOUT_OVERRIDES[presetName] || {};
+  const activeLayouts = { ...BASE_COMPONENT_LAYOUTS, ...overrides };
+
+  if (await fs.pathExists(variantsRoot)) {
+    const componentDirs = await fs.readdir(variantsRoot);
+    for (const dir of componentDirs) {
+      const dirPath = path.join(variantsRoot, dir);
+      let stat;
+      try { stat = await fs.stat(dirPath); } catch { continue; }
+      if (!stat.isDirectory()) continue;
+
+      const componentKey = Object.entries(COMPONENT_DIR_MAP).find(
+        ([, v]) => v === dir,
+      )?.[0];
+      if (!componentKey) continue;
+
+      const activeVariant = activeLayouts[componentKey];
+      if (!activeVariant) continue;
+
+      const activeFilename = variantValueToFilename(activeVariant);
+      let files;
+      try { files = await fs.readdir(dirPath); } catch { continue; }
+
+      for (const file of files) {
+        if (file !== activeFilename) {
+          await fs.remove(path.join(dirPath, file));
+        }
+      }
+    }
+  }
+
+  // ── 1b. Remove deferred UI components (not needed at init) ─────
+  const DEFERRED_UI = ["form.jsx", "label.jsx", "checkbox.jsx", "dropdown-menu.jsx"];
+  const uiRoot = path.join(frontendRoot, "src", "components", "ui");
+  if (await fs.pathExists(uiRoot)) {
+    for (const file of DEFERRED_UI) {
+      const fp = path.join(uiRoot, file);
+      try { await fs.remove(fp); } catch { /* already gone */ }
+    }
+  }
+
+  // ── 1c. Remove deployment & example-scaffold files ─────────────
+  const INIT_UNNEEDED = [
+    "backend/Dockerfile",
+    "frontend/Dockerfile",
+    "frontend/nginx.conf",
+    "backend/tests/performance/load-test.js",
+    "backend/src/modules/products/products.controller.js",
+    "backend/src/modules/products/products.model.js",
+    "backend/src/modules/products/products.routes.js",
+    "backend/src/modules/products/products.service.js",
+    "backend/src/modules/products/products.validator.js",
+  ];
+  for (const rel of INIT_UNNEEDED) {
+    const fp = path.join(projectRoot, ...rel.split("/"));
+    try { await fs.remove(fp); } catch { /* already gone */ }
+  }
+  // Remove the products route from the route index
+  const routesIndex = path.join(projectRoot, "backend", "src", "routes", "index.js");
+  try {
+    let idx = await fs.readFile(routesIndex, "utf-8");
+    idx = idx.replace(/router\.use\("\/products", require\("\.\.\/modules\/products\/products\.routes"\)\);\r?\n/, "");
+    idx = idx.replace(/\n{3,}/g, "\n\n");
+    await fs.writeFile(routesIndex, idx, "utf-8");
+  } catch { /* non-fatal */ }
+
+  // Remove empty products/ dir if left behind
+  const prodsDir = path.join(projectRoot, "backend", "src", "modules", "products");
+  try {
+    const leftover = await fs.readdir(prodsDir);
+    if (leftover.length === 0) await fs.remove(prodsDir);
+  } catch { /* no dir or already gone */ }
+
+  // ── 2. Strip non-active preset blocks from app-preset.js ────────
+  if (!(await fs.pathExists(presetPath))) return;
+
+  let code;
+  try { code = await fs.readFile(presetPath, "utf-8"); } catch { return; }
+
+  // 2a. Remove the shadcnPaste-only import
+  code = code.replace(
+    /^import \{ installShadcnDesignPreset \} from "[^"]+";\n?/m,
+    "",
+  );
+
+  // 2b. Remove the demoShadcnCss variable
+  code = code.replace(/^const demoShadcnCss[\s\S]*?^(?=export )/m, "");
+
+  // 2c. Remove non-active preset blocks from presetVariants
+  const ALL_PRESET_NAMES = ["saas", "clinic", "studio", "operations", "commerce", "shadcnPaste"];
+  const presetsToRemove = ALL_PRESET_NAMES.filter((n) => n !== presetName);
+
+  for (const name of presetsToRemove) {
+    const re = new RegExp(`^\\s{2}${name}:\\s*\\{`, "m");
+    const match = code.match(re);
+    if (!match) continue;
+
+    const startIdx = match.index;
+    let depth = 0;
+    let endIdx = startIdx;
+    let inString = false;
+    let stringChar = null;
+
+    for (let i = startIdx; i < code.length; i++) {
+      const ch = code[i];
+      if (inString) {
+        if (ch === "\\") { i += 1; continue; }
+        if (ch === stringChar) inString = false;
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === "`") {
+        inString = true;
+        stringChar = ch;
+        continue;
+      }
+      if (ch === "{") depth += 1;
+      if (ch === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          endIdx = i + 1;
+          if (code[endIdx] === ",") endIdx += 1;
+          break;
+        }
+      }
+    }
+
+    code = code.slice(0, startIdx) + code.slice(endIdx);
+  }
+
+  // Clean up excess blank lines
+  code = code.replace(/\n{3,}/g, "\n\n");
+  code = code.replace(/\n+$/, "\n");
+
+  await fs.writeFile(presetPath, code, "utf-8");
 }
 
 const sanitizeUtilContent = `export function sanitizeText(v) { return typeof v === 'string' ? v.replace(/<[^>]*>?/gm, "").trim() : v; }

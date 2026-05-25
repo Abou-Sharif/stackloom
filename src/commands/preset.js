@@ -5,6 +5,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
+import { normalizePm, runCmd } from '../utils/package-manager.js';
 
 const PRESETS = ['saas', 'clinic', 'studio', 'operations', 'commerce'];
 
@@ -47,9 +48,16 @@ export default async function presetCmd(presetName) {
     );
 
     await fs.writeFile(presetPath, presetCode, 'utf-8');
+    // Read package manager from metadata
+    let pm = 'pnpm';
+    try {
+      const meta = await fs.readJSON(path.join(projectRoot, '.loom', 'metadata.json'));
+      if (meta.packageManager) pm = normalizePm(meta.packageManager);
+    } catch { /* use default */ }
+
     spinner.succeed(`Preset "${selectedPreset}" applied successfully.`);
     
-    console.log(chalk.gray('\nNote: This changed your UI configuration. Run `pnpm dev` to see changes.'));
+    console.log(chalk.gray(`\nNote: This changed your UI configuration. Run \`${runCmd(pm, "dev")}\` to see changes.`));
   } catch (err) {
     spinner.fail('Failed to apply preset');
     console.error(chalk.red(err.message));

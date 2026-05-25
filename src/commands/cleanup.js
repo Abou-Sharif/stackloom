@@ -17,6 +17,7 @@ import fs from "fs-extra";
 import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
+import { normalizePm, installCmd, runCmd } from "../utils/package-manager.js";
 
 const CLEANUP_PRESETS = {
   minimal: {
@@ -297,6 +298,14 @@ async function stripSourceComments(projectRoot) {
 async function rewriteReadme(projectRoot) {
   const readmePath = path.join(projectRoot, "README.md");
   const pkgPath = path.join(projectRoot, "package.json");
+
+  // Read package manager from metadata
+  let pm = "pnpm";
+  try {
+    const meta = fs.readJSONSync(path.join(projectRoot, ".loom", "metadata.json"));
+    if (meta.packageManager) pm = normalizePm(meta.packageManager);
+  } catch { /* use default */ }
+
   let name = "My Project";
   if (await fs.pathExists(pkgPath)) {
     const pkg = await fs.readJson(pkgPath);
@@ -309,8 +318,8 @@ A full-stack web application.
 ## Getting started
 
 \`\`\`bash
-pnpm install
-pnpm dev
+${installCmd(pm)}
+${runCmd(pm, "dev")}
 \`\`\`
 
 ## Structure
@@ -336,13 +345,20 @@ async function createTemplateArchive(projectRoot) {
 }
 
 function printNextSteps(preset) {
+  // Try to read package manager from metadata
+  let pm = "pnpm";
+  try {
+    const meta = fs.readJSONSync(path.join(process.cwd(), ".loom", "metadata.json"));
+    if (meta.packageManager) pm = normalizePm(meta.packageManager);
+  } catch { /* use default */ }
+
   console.log(chalk.cyan("\nNext steps:"));
   if (preset === "template") {
     console.log(chalk.gray("  1. Review .template/ for reusable components"));
     console.log(chalk.gray("  2. Distribute the archive to your team"));
   } else {
     console.log(chalk.gray("  1. Review remaining files for any customizations"));
-    console.log(chalk.gray("  2. Run 'pnpm install' to refresh dependencies"));
+    console.log(chalk.gray(`  2. Run '${installCmd(pm)}' to refresh dependencies`));
     console.log(chalk.gray("  3. Commit — the project is now fully your own"));
   }
 }

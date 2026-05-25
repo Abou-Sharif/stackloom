@@ -27,6 +27,51 @@ export const VALIDATION_RULES = {
   options: { type: "array", description: "Dropdown options for select fields" },
 };
 
+export const REGEX_PRESETS = {
+  email: { label: "Email", pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", hint: "Standard email format" },
+  phoneUS: { label: "Phone (US)", pattern: "^\\+?1?\\d{10}$", hint: "US 10-digit phone number" },
+  phoneIntl: { label: "Phone (International)", pattern: "^\\+?[1-9]\\d{1,14}$", hint: "E.164 international format" },
+  url: { label: "URL", pattern: "^https?://[^\\s/$.?#].[^\\s]*$", hint: "http or https URL" },
+  zipUS: { label: "ZIP Code (US)", pattern: "^\\d{5}(-\\d{4})?$", hint: "5-digit or 9-digit ZIP" },
+  alphanumeric: { label: "Alphanumeric", pattern: "^[a-zA-Z0-9]+$", hint: "Letters and digits only" },
+  letters: { label: "Letters Only", pattern: "^[a-zA-Z]+$", hint: "A-Z and a-z" },
+  numbers: { label: "Numbers Only", pattern: "^\\d+$", hint: "Digits 0-9" },
+  hexColor: { label: "Hex Color", pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", hint: "#RGB or #RRGGBB" },
+  ipAddress: { label: "IP Address", pattern: "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", hint: "IPv4 address" },
+  slug: { label: "Slug", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", hint: "kebab-case URL slug" },
+  uuid: { label: "UUID", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", hint: "UUID v4" },
+  custom: { label: "Custom Regex", pattern: null, hint: "Write your own pattern" },
+};
+
+export const REGEX_PRESET_CHOICES = Object.entries(REGEX_PRESETS).map(([key, val]) => ({
+  name: `${val.label}${val.pattern ? '' : ' (manual input)'} — ${val.hint}`,
+  value: key,
+}));
+
+export const COUNTRY_CONFIG = {
+  KE: { label: "Kenya", code: "KE", phonePattern: "^\\+?254\\d{9}$", currency: "KES", region: "East Africa" },
+  TZ: { label: "Tanzania", code: "TZ", phonePattern: "^\\+?255\\d{9}$", currency: "TZS", region: "East Africa" },
+  UG: { label: "Uganda", code: "UG", phonePattern: "^\\+?256\\d{9}$", currency: "UGX", region: "East Africa" },
+  RW: { label: "Rwanda", code: "RW", phonePattern: "^\\+?250\\d{9}$", currency: "RWF", region: "East Africa" },
+  BI: { label: "Burundi", code: "BI", phonePattern: "^\\+?257\\d{8}$", currency: "BIF", region: "East Africa" },
+  ET: { label: "Ethiopia", code: "ET", phonePattern: "^\\+?251\\d{9}$", currency: "ETB", region: "East Africa" },
+  SO: { label: "Somalia", code: "SO", phonePattern: "^\\+?252\\d{8,9}$", currency: "SOS", region: "East Africa" },
+  SS: { label: "South Sudan", code: "SS", phonePattern: "^\\+?211\\d{9}$", currency: "SSP", region: "East Africa" },
+  SD: { label: "Sudan", code: "SD", phonePattern: "^\\+?249\\d{9}$", currency: "SDG", region: "East Africa" },
+  DJ: { label: "Djibouti", code: "DJ", phonePattern: "^\\+?253\\d{8}$", currency: "DJF", region: "East Africa" },
+  ER: { label: "Eritrea", code: "ER", phonePattern: "^\\+?291\\d{8}$", currency: "ERN", region: "East Africa" },
+  CD: { label: "DR Congo", code: "CD", phonePattern: "^\\+?243\\d{9}$", currency: "CDF", region: "Central Africa" },
+  EG: { label: "Egypt", code: "EG", phonePattern: "^\\+?20\\d{10}$", currency: "EGP", region: "North Africa" },
+  AE: { label: "UAE", code: "AE", phonePattern: "^\\+?971\\d{9}$", currency: "AED", region: "Middle East" },
+  IN: { label: "India", code: "IN", phonePattern: "^\\+?91\\d{10}$", currency: "INR", region: "Asia" },
+  custom: { label: "Custom", code: "custom", phonePattern: null, currency: "", region: "Other" },
+};
+
+export const COUNTRY_CHOICES = Object.entries(COUNTRY_CONFIG).map(([key, val]) => ({
+  name: `${val.label} (${val.code}) — ${val.currency} [${val.region}]`,
+  value: key,
+}));
+
 const TYPE_VALIDATORS = {
   text: (value) => typeof value === "string",
   textarea: (value) => typeof value === "string",

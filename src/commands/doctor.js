@@ -5,6 +5,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import ora from 'ora';
 import { execSync } from 'child_process';
+import { normalizePm, installCmd } from '../utils/package-manager.js';
 
 /**
  * Doctor Command — checks environment and project health
@@ -12,9 +13,14 @@ import { execSync } from 'child_process';
 export default async function doctorCmd() {
   const spinner = ora();
   const projectRoot = process.cwd();
-  // Track hard failures so the command exits non-zero — a doctor that always
-  // exits 0 is useless in CI and scripts.
   let failures = 0;
+
+  // Read package manager from project metadata (if inside a project)
+  let pm = 'pnpm';
+  try {
+    const meta = fs.readJSONSync(path.join(projectRoot, '.loom', 'metadata.json'));
+    if (meta.packageManager) pm = normalizePm(meta.packageManager);
+  } catch { /* use default */ }
 
   console.log(chalk.cyan.bold('\n🏥 Stackloom Doctor — System Health Check\n'));
 
@@ -29,12 +35,12 @@ export default async function doctorCmd() {
     spinner.succeed(`Node.js ${nodeVersion} detected`);
   }
 
-  spinner.start('Checking pnpm...');
+  spinner.start(`Checking ${pm}...`);
   try {
-    const pnpmVersion = execSync('pnpm -v', { shell: true }).toString().trim();
-    spinner.succeed(`pnpm ${pnpmVersion} detected`);
+    const pmVersion = execSync(`${pm} -v`, { shell: true }).toString().trim();
+    spinner.succeed(`${pm} ${pmVersion} detected`);
   } catch {
-    spinner.warn('pnpm not found. It is recommended for this starter kit.');
+    spinner.warn(`${pm} not found. It is required for this project.`);
   }
 
   // 2. Project Checks
@@ -55,14 +61,14 @@ export default async function doctorCmd() {
     if (await fs.pathExists(path.join(projectRoot, 'backend/node_modules'))) {
       spinner.succeed('Backend dependencies installed');
     } else {
-      spinner.warn('Backend dependencies missing. Run `pnpm install`');
+      spinner.warn(`Backend dependencies missing. Run \`${installCmd(pm)}\``);
     }
 
     spinner.start('Checking frontend dependencies...');
     if (await fs.pathExists(path.join(projectRoot, 'frontend/node_modules'))) {
       spinner.succeed('Frontend dependencies installed');
     } else {
-      spinner.warn('Frontend dependencies missing. Run `pnpm install`');
+      spinner.warn(`Frontend dependencies missing. Run \`${installCmd(pm)}\``);
     }
 
     // 4. Configuration

@@ -5,6 +5,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import ora from 'ora';
 import { execSync } from 'child_process';
+import { normalizePm, runCmd, runInDirBare } from '../utils/package-manager.js';
 
 /**
  * Finalize Command — prepares the project for production
@@ -13,12 +14,19 @@ export default async function finalizeCmd() {
   const spinner = ora();
   const projectRoot = process.cwd();
 
+  // Read package manager from project metadata
+  let pm = 'pnpm';
+  try {
+    const meta = fs.readJSONSync(path.join(projectRoot, '.loom', 'metadata.json'));
+    if (meta.packageManager) pm = normalizePm(meta.packageManager);
+  } catch { /* use default */ }
+
   console.log(chalk.cyan.bold('\n🚀 Finalizing Project for Production\n'));
 
   // 1. Linting
   spinner.start('Running linting checks...');
   try {
-    execSync('pnpm lint', { shell: true, cwd: projectRoot, stdio: 'pipe' });
+    execSync(runCmd(pm, 'lint'), { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('Linting passed');
   } catch {
     spinner.fail('Linting failed. Please fix errors before finalizing.');
@@ -28,8 +36,8 @@ export default async function finalizeCmd() {
   // 2. Type Checking
   spinner.start('Running type checks...');
   try {
-    execSync('pnpm -C backend exec tsc --noEmit', { shell: true, cwd: projectRoot, stdio: 'pipe' });
-    execSync('pnpm -C frontend exec tsc --noEmit', { shell: true, cwd: projectRoot, stdio: 'pipe' });
+    execSync(runInDirBare(pm, 'backend', 'exec tsc --noEmit'), { shell: true, cwd: projectRoot, stdio: 'pipe' });
+    execSync(runInDirBare(pm, 'frontend', 'exec tsc --noEmit'), { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('Type checks passed');
   } catch {
     spinner.warn('Type checks failed or tsc not found. Skipping.');
@@ -38,7 +46,7 @@ export default async function finalizeCmd() {
   // 3. Tests
   spinner.start('Running all tests...');
   try {
-    execSync('pnpm test', { shell: true, cwd: projectRoot, stdio: 'pipe' });
+    execSync(runCmd(pm, 'test'), { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('All tests passed');
   } catch {
     spinner.fail('Tests failed. Please fix before production.');
@@ -48,7 +56,7 @@ export default async function finalizeCmd() {
   // 4. Build
   spinner.start('Building for production...');
   try {
-    execSync('pnpm build', { shell: true, cwd: projectRoot, stdio: 'pipe' });
+    execSync(runCmd(pm, 'build'), { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('Production build successful');
   } catch {
     spinner.fail('Build failed.');
@@ -58,10 +66,12 @@ export default async function finalizeCmd() {
   // 5. Security Audit
   spinner.start('Running security audit...');
   try {
-    execSync('npm audit', { shell: true, cwd: projectRoot, stdio: 'pipe' });
+    const auditCmds = { pnpm: 'pnpm audit', npm: 'npm audit', yarn: 'yarn audit', bun: 'bun pm audit' };
+    execSync(auditCmds[pm] || 'npm audit', { shell: true, cwd: projectRoot, stdio: 'pipe' });
     spinner.succeed('Security audit passed');
   } catch {
-    spinner.warn('Security vulnerabilities detected. Run `npm audit fix`.');
+    const auditHints = { pnpm: 'pnpm audit fix', npm: 'npm audit fix', yarn: 'yarn audit fix', bun: 'bun pm audit' };
+    spinner.warn(`Security vulnerabilities detected. Run \`${auditHints[pm] || 'npm audit fix'}\`.`);
   }
 
   console.log(chalk.green.bold('\n✨ Project is production-ready!\n'));

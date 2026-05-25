@@ -9,12 +9,21 @@
  */
 import inquirer from "inquirer";
 import path from "node:path";
+import { execSync } from "node:child_process";
+import { addCmd, normalizePm } from "../utils/package-manager.js";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   ResourceDefinition,
   parseFieldSpec,
   parseRelationsSpec,
 } from "../core/resource-definition.js";
+import {
+  REGEX_PRESETS,
+  REGEX_PRESET_CHOICES,
+  COUNTRY_CONFIG,
+  COUNTRY_CHOICES,
+} from "../utils/fieldValidators.js";
 
 function projectDefaultFormMode() {
   try {
@@ -39,7 +48,7 @@ import {
   validateGenerateOptions,
   validateResourceDefinition,
 } from "../schemas/index.js";
-import { existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 
 const FIELD_TYPE_CHOICES = [
   { name: "Text (single line)", value: "string" },
@@ -233,15 +242,16 @@ function assertAmendTargetExists(projectRoot, blueprint, resource) {
 
 function serializeFieldSpec(field) {
   const rules = [];
-  if (field.required) rules.push("required");
-  if (field.unique) rules.push("unique");
-  if (field.minLength != null) rules.push(`minLength=${field.minLength}`);
-  if (field.maxLength != null) rules.push(`maxLength=${field.maxLength}`);
-  if (field.min != null) rules.push(`min=${field.min}`);
-  if (field.max != null) rules.push(`max=${field.max}`);
-  if (field.pattern) rules.push(`pattern=${field.pattern}`);
+  const v = field.validation || {};
+  if (v.required || field.required) rules.push("required");
+  if (v.unique || field.unique) rules.push("unique");
+  if (v.minLength != null) rules.push(`minLength=${v.minLength}`);
+  if (v.maxLength != null) rules.push(`maxLength=${v.maxLength}`);
+  if (v.min != null) rules.push(`min=${v.min}`);
+  if (v.max != null) rules.push(`max=${v.max}`);
+  if (v.pattern || field.pattern) rules.push(`pattern=${v.pattern || field.pattern}`);
   const isRef = field.type === "ref" || field.type === "reference";
-  const refModel = field.special?.model;
+  const refModel = field.special?.model || (isRef && v.model);
   if (isRef && refModel) {
     const base = `${field.name}:ref[${refModel}]`;
     return rules.length ? `${base}:${rules.join("|")}` : base;
@@ -261,7 +271,7 @@ function suggestFieldTypeFromName(fieldName) {
 async function askResourceFields() {
   const fields = [];
   while (true) {
-    const answers = await inquirer.prompt([
+    const baseAnswers = await inquirer.prompt([
       {
         type: "input",
         name: "name",
@@ -290,6 +300,19 @@ async function askResourceFields() {
           "Use PascalCase, matching the other resource's model name",
         filter: (v) => (v || "").trim(),
       },
+    ]);
+
+    const field = {
+      name: baseAnswers.name,
+      type: baseAnswers.type,
+      validation: {},
+      special: baseAnswers.type === "ref" && baseAnswers.refModel
+        ? { model: baseAnswers.refModel }
+        : {},
+    };
+
+    // Common validation prompts
+    const validationAnswers = await inquirer.prompt([
       {
         type: "confirm",
         name: "required",
@@ -306,42 +329,73 @@ async function askResourceFields() {
         type: "input",
         name: "minLength",
         message: "Min length (optional):",
+        when: (a) => !["number", "range", "boolean", "date", "datetime", "color", "file", "ref"].includes(baseAnswers.type),
         validate: (value) =>
-          !value ||
-          /^\d+$/.test(value) ||
-          "Enter a whole number or leave blank",
+          !value || /^\d+$/.test(value) || "Enter a whole number or leave blank",
       },
       {
         type: "input",
         name: "maxLength",
         message: "Max length (optional):",
+        when: (a) => !["number", "range", "boolean", "date", "datetime", "color", "file", "ref"].includes(baseAnswers.type),
         validate: (value) =>
-          !value ||
-          /^\d+$/.test(value) ||
-          "Enter a whole number or leave blank",
+          !value || /^\d+$/.test(value) || "Enter a whole number or leave blank",
       },
       {
         type: "input",
         name: "min",
-        message: "Min value (optional):",
-        validate: (value) =>
-          !value ||
-          !Number.isNaN(Number(value)) ||
-          "Enter a number or leave blank",
+        message: (a) =>
+          ["date", "datetime"].includes(baseAnswers.type)
+            ? "Earliest date (YYYY-MM-DD, optional):"
+            : "Min value (optional):",
+        when: (a) =>
+          ["number", "range", "date", "datetime"].includes(baseAnswers.type),
+        validate: (value) => {
+          if (!value) return true;
+          if (["date", "datetime"].includes(baseAnswers.type)) {
+            return !Number.isNaN(Date.parse(value)) || "Enter a valid date (YYYY-MM-DD) or leave blank";
+          }
+          return !Number.isNaN(Number(value)) || "Enter a number or leave blank";
+        },
       },
       {
         type: "input",
         name: "max",
-        message: "Max value (optional):",
-        validate: (value) =>
-          !value ||
-          !Number.isNaN(Number(value)) ||
-          "Enter a number or leave blank",
+        message: (a) =>
+          ["date", "datetime"].includes(baseAnswers.type)
+            ? "Latest date (YYYY-MM-DD, optional):"
+            : "Max value (optional):",
+        when: (a) =>
+          ["number", "range", "date", "datetime"].includes(baseAnswers.type),
+        validate: (value) => {
+          if (!value) return true;
+          if (["date", "datetime"].includes(baseAnswers.type)) {
+            return !Number.isNaN(Date.parse(value)) || "Enter a valid date (YYYY-MM-DD) or leave blank";
+          }
+          return !Number.isNaN(Number(value)) || "Enter a number or leave blank";
+        },
+      },
+      {
+        type: "list",
+        name: "country",
+        message: "Phone country:",
+        choices: COUNTRY_CHOICES,
+        when: (a) => baseAnswers.type === "phone",
+        default: "US",
+      },
+      {
+        type: "list",
+        name: "patternPreset",
+        message: "Validation pattern (optional):",
+        choices: REGEX_PRESET_CHOICES,
+        when: (a) => baseAnswers.type !== "phone" && !["number", "range", "boolean", "date", "datetime", "color", "file", "ref"].includes(baseAnswers.type),
+        default: "custom",
       },
       {
         type: "input",
-        name: "pattern",
-        message: "Regex pattern (optional):",
+        name: "customPattern",
+        message: "Custom regex pattern:",
+        when: (a) => a.patternPreset === "custom" && baseAnswers.type !== "phone" && !["number", "range", "boolean", "date", "datetime", "color", "file", "ref"].includes(baseAnswers.type),
         validate: (value) => {
           if (!value) return true;
           try { new RegExp(value); return true; }
@@ -356,23 +410,38 @@ async function askResourceFields() {
       },
     ]);
 
-    fields.push({
-      name: answers.name,
-      type: answers.type,
-      required: answers.required,
-      unique: answers.unique,
-      minLength: answers.minLength ? Number(answers.minLength) : undefined,
-      maxLength: answers.maxLength ? Number(answers.maxLength) : undefined,
-      min: answers.min ? Number(answers.min) : undefined,
-      max: answers.max ? Number(answers.max) : undefined,
-      pattern: answers.pattern || undefined,
-      special:
-        answers.type === "ref" && answers.refModel
-          ? { model: answers.refModel }
-          : {},
-    });
+    field.validation.required = validationAnswers.required;
+    field.validation.unique = validationAnswers.unique;
 
-    if (!answers.more) break;
+    if (validationAnswers.minLength) field.validation.minLength = Number(validationAnswers.minLength);
+    if (validationAnswers.maxLength) field.validation.maxLength = Number(validationAnswers.maxLength);
+
+    if (validationAnswers.min !== undefined && validationAnswers.min !== "") {
+      field.validation.min = ["date", "datetime"].includes(baseAnswers.type)
+        ? validationAnswers.min
+        : Number(validationAnswers.min);
+    }
+    if (validationAnswers.max !== undefined && validationAnswers.max !== "") {
+      field.validation.max = ["date", "datetime"].includes(baseAnswers.type)
+        ? validationAnswers.max
+        : Number(validationAnswers.max);
+    }
+
+    // Phone country → pattern
+    if (baseAnswers.type === "phone" && validationAnswers.country) {
+      const phonePattern = COUNTRY_CONFIG[validationAnswers.country]?.phonePattern;
+      if (phonePattern) field.validation.pattern = phonePattern;
+    }
+
+    // Pattern preset → pattern string
+    if (validationAnswers.patternPreset && validationAnswers.patternPreset !== "custom") {
+      field.validation.pattern = REGEX_PRESETS[validationAnswers.patternPreset]?.pattern;
+    } else if (validationAnswers.customPattern) {
+      field.validation.pattern = validationAnswers.customPattern;
+    }
+
+    fields.push(field);
+    if (!validationAnswers.more) break;
   }
   return fields;
 }
@@ -840,6 +909,12 @@ export default async function generateResource(type, name, options = {}) {
       reporter.step(`Amending ${resource.name} (preserving custom zones where marked)`);
     }
 
+    // Check for resource-triggered dependencies and prompt to install
+    await ensureResourceDependencies(projectRoot, resource, reporter);
+
+    // Restore deferred UI components needed by this resource
+    await ensureUiComponents(projectRoot, resource, reporter);
+
     const recipe = await recipeLoader.load(
       executionOptions.recipe || type,
       blueprint,
@@ -973,4 +1048,192 @@ export default async function generateResource(type, name, options = {}) {
     return;
   }
   reporter.flush();
+}
+
+// ─── Resource dependency check ─────────────────────────────────────
+const RESOURCE_DEPS_MAP = {
+  "date":      { "date-fns": "^3.6.0", "react-day-picker": "^8.10.1" },
+  "datetime":  { "date-fns": "^3.6.0", "react-day-picker": "^8.10.1" },
+  "ref":       { "cmdk": "^1.0.0" },
+  "reference": { "cmdk": "^1.0.0" },
+};
+
+async function ensureResourceDependencies(projectRoot, resource, reporter) {
+  const pkgPath = path.join(projectRoot, "frontend", "package.json");
+  let pkg;
+  try { pkg = JSON.parse(readFileSync(pkgPath, "utf-8")); } catch { return; }
+
+  // Read package manager from project metadata
+  let pm = "pnpm";
+  try {
+    const meta = JSON.parse(readFileSync(path.join(projectRoot, ".loom", "metadata.json"), "utf-8"));
+    if (meta.packageManager) pm = normalizePm(meta.packageManager);
+  } catch { /* use default */ }
+  const addPrefix = addCmd(pm);
+  const frontendDir = path.join(projectRoot, "frontend");
+
+  const needed = {};
+  for (const field of resource.fields || []) {
+    const type = field.type || field.fieldType;
+    const deps = RESOURCE_DEPS_MAP[type];
+    if (deps) {
+      Object.assign(needed, deps);
+    }
+  }
+
+  // Filter out already-installed packages
+  const toInstall = {};
+  for (const [name, version] of Object.entries(needed)) {
+    if (!pkg.dependencies?.[name] && !pkg.devDependencies?.[name]) {
+      toInstall[name] = version;
+    }
+  }
+
+  const entries = Object.entries(toInstall);
+  if (entries.length === 0) return;
+
+  const pkgList = entries.map(([n, v]) => `${n}@${v}`).join(", ");
+  reporter.step(
+    `This resource requires extra packages: ${pkgList}`,
+  );
+
+  const { install } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "install",
+      message: `Install ${pkgList}?`,
+      default: true,
+    },
+  ]);
+
+  if (!install) {
+    reporter.info(`Skipped — add manually: ${addCmd(pm)} ${pkgList}`);
+    return;
+  }
+
+  try {
+    execSync(`${addCmd(pm)} ${entries.map(([n, v]) => `${n}@${v}`).join(" ")}`, {
+      cwd: frontendDir,
+      stdio: "inherit",
+      env: { ...process.env, CI: "true" },
+    });
+    reporter.success("Dependencies installed");
+  } catch (err) {
+    reporter.warn(`Failed to install: ${err.message}`);
+  }
+}
+
+// ─── Deferred UI component restore ────────────────────────────────
+const UI_COMPONENT_NEEDS = {
+  form: {
+    trigger: (f) => true,
+    file: "form.jsx",
+    deps: {},
+  },
+  checkbox: {
+    trigger: (f) => f.type === "boolean",
+    file: "checkbox.jsx",
+    deps: { "@radix-ui/react-checkbox": "^1.2.4" },
+  },
+};
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CLI_UI_BUNDLE = path.resolve(__dirname, "../bundled-components/ui/");
+
+async function ensureUiComponents(projectRoot, resource, reporter) {
+  const fields = resource.fields || [];
+  if (fields.length === 0) return;
+
+  // Read package manager from project metadata
+  let pm = "pnpm";
+  try {
+    const meta = JSON.parse(readFileSync(path.join(projectRoot, ".loom", "metadata.json"), "utf-8"));
+    if (meta.packageManager) pm = normalizePm(meta.packageManager);
+  } catch { /* use default */ }
+  const addPrefix = addCmd(pm);
+  const frontendDir = path.join(projectRoot, "frontend");
+
+  const uiDir = path.join(projectRoot, "frontend", "src", "components", "ui");
+  const fePkgPath = path.join(projectRoot, "frontend", "package.json");
+
+  let pkg;
+  try {
+    pkg = JSON.parse(readFileSync(fePkgPath, "utf-8"));
+  } catch {
+    pkg = { dependencies: {} };
+  }
+
+  const toCopy = [];
+  const toInstall = {};
+
+  for (const [key, spec] of Object.entries(UI_COMPONENT_NEEDS)) {
+    const needed = fields.some(spec.trigger);
+    if (!needed) continue;
+
+    const target = path.join(uiDir, spec.file);
+    if (existsSync(target)) continue;
+
+    // Source exists in CLI bundle?
+    const source = path.join(CLI_UI_BUNDLE, spec.file);
+    try {
+      readFileSync(source);
+    } catch {
+      continue;
+    }
+
+    toCopy.push({ source, target });
+    Object.assign(toInstall, spec.deps);
+  }
+
+  if (toCopy.length === 0) return;
+
+  const names = toCopy.map((c) => path.basename(c.source)).join(", ");
+  reporter.step(`Restoring deferred UI components: ${names}`);
+
+  // Filter already-installed packages
+  const missingDeps = {};
+  for (const [name, version] of Object.entries(toInstall)) {
+    if (!pkg.dependencies?.[name] && !pkg.devDependencies?.[name]) {
+      missingDeps[name] = version;
+    }
+  }
+
+  const depEntries = Object.entries(missingDeps);
+  if (depEntries.length > 0) {
+    const depList = depEntries.map(([n, v]) => `${n}@${v}`).join(", ");
+    const { install } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "install",
+        message: `Install missing packages: ${depList}?`,
+        default: true,
+      },
+    ]);
+
+    if (install) {
+      try {
+        execSync(
+          `${addCmd(pm)} ${depEntries.map(([n, v]) => `${n}@${v}`).join(" ")}`,
+          { cwd: frontendDir, stdio: "inherit", env: { ...process.env, CI: "true" } },
+        );
+        reporter.success("Dependencies installed");
+      } catch (err) {
+        reporter.warn(`Failed to install: ${err.message}`);
+      }
+    } else {
+      reporter.info(`Add manually: ${addCmd(pm)} ${depList}`);
+    }
+  }
+
+  // Copy component files
+  try {
+    mkdirSync(uiDir, { recursive: true });
+    for (const { source, target } of toCopy) {
+      copyFileSync(source, target);
+    }
+    reporter.success(`Restored: ${names}`);
+  } catch (err) {
+    reporter.warn(`Failed to copy components: ${err.message}`);
+  }
 }

@@ -61,7 +61,7 @@ export default function <%= resource.pascalName %>DetailPage() {
                 <span>{<% if (field.type === 'boolean') { %>
                   item.<%- field.name %> ? 'Yes' : 'No'
                 <% } else if (field.type === 'date' || field.type === 'datetime') { %>
-                  new Date(item.<%- field.name %>).toLocaleString()
+                  new Date(item.<%- field.name %>).<%- field.type === 'datetime' ? 'toLocaleString()' : 'toLocaleDateString()' %>
                 <% } else if (field.type === 'ref' || field.type === 'reference') { %>
                   typeof item.<%- field.name %> === 'object' ? (item.<%- field.name %>.name || item.<%- field.name %>.title || item.<%- field.name %>.code || item.<%- field.name %>.email || item.<%- field.name %>._id) : (item.<%- field.name %> ? String(item.<%- field.name %>).slice(0, 8) + '…' : '—')
                 <% } else { %>

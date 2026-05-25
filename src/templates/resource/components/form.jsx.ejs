@@ -21,6 +21,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { Check, ChevronsUpDown, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 
 <% function zodType(f) {
   switch (f.type) {
@@ -46,11 +63,56 @@ import {
 } %>
 
 export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel, isLoading, serverErrors, refOptions = {} }) => {
-  const formSchema = z.object({
+  const [comboboxOpen, setComboboxOpen] = useState({});
+  const baseSchema = z.object({
 <% resource.fields.forEach(function(f) { -%>
     <%- f.name %>: <%- f.validation.required ? zodType(f) : `${zodType(f)}.optional()` %>,
 <% }); -%>
   });
+
+<%
+// Detect date range pairs (startDate↔endDate, fromDate↔toDate, etc.)
+const dateFields = resource.fields.filter(function(f) { return f.type === 'date' || f.type === 'datetime'; });
+const datePairs = [];
+const prefixPairs = [
+  ['start', 'end'],
+  ['begin', 'finish'],
+  ['from', 'to'],
+  ['min', 'max'],
+];
+for (const [sp, ep] of prefixPairs) {
+  for (const df of dateFields) {
+    const lowerName = df.name.toLowerCase();
+    if (lowerName.startsWith(sp)) {
+      const stem = df.name.slice(sp.length);
+      const usesTitleCase = df.name.charAt(0) === df.name.charAt(0).toUpperCase();
+      const endPrefix = usesTitleCase ? ep.charAt(0).toUpperCase() + ep.slice(1) : ep;
+      const candidate = endPrefix + stem;
+      const match = dateFields.find(function(f) { return f.name === candidate && f.name !== df.name; });
+      if (match) {
+        datePairs.push({ start: df.name, end: match.name });
+      }
+    }
+  }
+}
+if (datePairs.length > 0) { -%>
+const formSchema = baseSchema.superRefine((data, ctx) => {
+<% datePairs.forEach(function(p) { -%>
+  if (data.<%- p.start %> && data.<%- p.end %>) {
+    if (new Date(data.<%- p.start %>) >= new Date(data.<%- p.end %>)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "<%- p.start.charAt(0).toUpperCase() + p.start.slice(1) %> must be before <%- p.end %>",
+        path: ["<%- p.end %>"],
+      });
+    }
+  }
+<% }); -%>
+  return true;
+});
+<% } else { -%>
+const formSchema = baseSchema;
+<% } -%>
 
   const defaultValues = initialData ? {
 <% resource.fields.forEach(function(f) { -%>
@@ -102,25 +164,119 @@ export const <%= resource.pascalName %>Form = ({ initialData, onSubmit, onCancel
 <% }); -%>
                   </SelectContent>
                 </Select>
-<% } else if (f.type === 'ref' || f.type === 'reference') { 
-  const refModel = (f.special && f.special.model) || ''; 
+<% } else if (f.type === 'ref' || f.type === 'reference') {
+  const refModel = (f.special && f.special.model) || '';
+  const refModelVar = refModel || 'Unknown';
 -%>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={typeof field.value === 'object' ? field.value?._id || '' : field.value || ''}
-                  disabled={isLoading}
+                <Popover
+                  open={comboboxOpen['<%- f.name %>'] ?? false}
+                  onOpenChange={(open) => setComboboxOpen((prev) => ({ ...prev, '<%- f.name %>': open }))}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select <%- refModel %>" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(refOptions['<%- refModel %>'] || []).map((item) => (
-                      <SelectItem key={item._id} value={item._id}>
-                        {item.name || item.title || item.code || item.email || item._id?.slice(0, 8)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={comboboxOpen['<%- f.name %>'] ?? false}
+                      className="w-full justify-between font-normal"
+                      disabled={isLoading}
+                    >
+                      {field.value
+                        ? (refOptions['<%- refModelVar %>'] || []).find((item) => item._id === field.value)?.name
+                          || (refOptions['<%- refModelVar %>'] || []).find((item) => item._id === field.value)?.title
+                          || (refOptions['<%- refModelVar %>'] || []).find((item) => item._id === field.value)?.code
+                          || (refOptions['<%- refModelVar %>'] || []).find((item) => item._id === field.value)?.email
+                          || String(field.value).slice(0, 8) + '…'
+                        : `Select <%- refModelVar %>`}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search <%- refModelVar %>..." />
+                      <CommandList>
+                        <CommandEmpty>No <%- refModelVar %> found.</CommandEmpty>
+                        <CommandGroup>
+                          {(refOptions['<%- refModelVar %>'] || []).map((item) => (
+                            <CommandItem
+                              key={item._id}
+                              value={item.name || item.title || item.code || item.email || item._id}
+                              onSelect={() => {
+                                field.onChange(item._id);
+                                setComboboxOpen((prev) => ({ ...prev, '<%- f.name %>': false }));
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  field.value === item._id ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                              {item.name || item.title || item.code || item.email || item._id?.slice(0, 8)}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+<% } else if (f.type === 'date' || f.type === 'datetime') { -%>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !field.value && 'text-muted-foreground'
+                      )}
+                      disabled={isLoading}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {field.value
+                        ? format(new Date(field.value), <% if (f.type === 'datetime') { %>"PPP HH:mm"<% } else { %>"PPP"<% } %>)
+                        : <% if (f.type === 'datetime') { %>"Pick a date & time"<% } else { %>"Pick a date"<% } %>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value ? new Date(field.value) : undefined}
+                      onSelect={(date) => {
+                        if (date) {
+                          const current = field.value ? new Date(field.value) : new Date();
+                          date.setHours(current.getHours(), current.getMinutes());
+                          field.onChange(date.toISOString());
+                        } else {
+                          field.onChange(null);
+                        }
+                      }}
+<% if (f.validation.min !== undefined || f.validation.max !== undefined) { -%>
+                      disabled={[
+<% if (f.validation.min !== undefined) { -%>
+                        { before: new Date('<%- f.validation.min %>') },
+<% } -%>
+<% if (f.validation.max !== undefined) { -%>
+                        { after: new Date('<%- f.validation.max %>') },
+<% } -%>
+                      ]}
+<% } -%>
+                      initialFocus
+                    />
+<% if (f.type === 'datetime') { -%>
+                    <div className="border-t border-border p-3">
+                      <Input
+                        type="time"
+                        value={field.value ? format(new Date(field.value), 'HH:mm') : ''}
+                        onChange={(e) => {
+                          const [h, m] = e.target.value.split(':');
+                          const date = field.value ? new Date(field.value) : new Date();
+                          date.setHours(parseInt(h), parseInt(m));
+                          field.onChange(date.toISOString());
+                        }}
+                      />
+                    </div>
+<% } -%>
+                  </PopoverContent>
+                </Popover>
 <% } else { -%>
                 <Input type="<%- f.formInputType %>" {...field} disabled={isLoading} />
 <% } -%>

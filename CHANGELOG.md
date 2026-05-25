@@ -2,6 +2,80 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.20.0] — 2026-05-25
+
+### Added
+
+- **Package-manager abstraction** — new `src/utils/package-manager.js` exporting `normalizePm()`, `installCmd()`, `addCmd()`, `removeCmd()`, `runCmd()`, `runInDir()`, `runInDirBare()`, `convertRootScripts()`, `packageManagerField()` — supports pnpm, npm, yarn, bun.
+- **`loom init` PM prompt** — interactive package-manager selection (pnpm/npm/yarn/bun) with the choice persisted in `.loom/metadata.json`. Root `package.json` scripts auto-convert to target PM syntax.
+- **PM-aware commands** — `generate-resource`, `finalize`, `doctor`, `cleanup`, `preset` all read the stored PM from metadata and use it for install/run/check commands instead of hardcoding `pnpm`.
+- **`convertRootScripts()`** — rewrites root `package.json` `scripts` from `pnpm -C subdir` to target PM equivalents (`npm --prefix`, `yarn --cwd`, `bun --cwd`).
+- **Template-readiness test suite** — 316 tests in `src/__tests__/template-readiness.test.js` covering: real JS/JSX syntax parsing (TypeScript compiler), import chain integrity (BFS from entry points), module system consistency (ESM frontend / CJS backend), generation flow validation (temp copy → cleanup → variant pruning), env completeness, security headers, error handling, auth flow, dependency completeness, API response shape, frontend quality (loading/empty/error states), Vite config, and Docker/config validation.
+
+### Fixed
+
+- **`cleanupGeneratedProject` route removal** — `routes/index.js` uses `\r\n` line endings on Windows-created files; the string replace for `require("./products")` + route mount now uses regex `/...\r?\n/` to match both line-ending conventions.
+- **Duplicate `import path` in `generate-resource.js`** — redundant `import path from "node:path"` caused `SyntaxError: Identifier 'path' has already been declared` when running the CLI.
+
+### Documentation
+
+- Updated `README.md`, `CLI_USAGE.md`, all docs website JSX pages with PM-aware commands and options.
+- Professional CHANGELOG revision with full version history.
+- Added missing commands to docs: `validate`, `usage`, `completion`, `env`, `preset`, `check`, `rename`, `explain`, `forge`.
+
+### Tests
+
+- 20 new PM utility unit tests covering `normalizePm`, `installCmd`, `addCmd`, `removeCmd`, `runCmd`, `runInDir`, `runInDirBare`, `convertRootScripts`, and `packageManagerField` for all 4 package managers.
+- Updated template-readiness tests to verify metadata PM field is written correctly.
+- Full suite: 1191 tests passing across 24 test files.
+
+## [1.16.3] — 2026-05-24
+
+### Fixed
+
+- CLI version reconciled across package.json metadata.
+
+## [1.16.0] — 2026-05-24
+
+### Added
+
+- **`loom env`** — diff `.env` against `.env.example`; `--sync` appends missing keys with blank values. Pure dotenv-style parsing, no external dependency.
+- **`loom check`** — project health check verifying Node version, blueprint file validity, anchor file integrity, and env variable completeness.
+- **`loom preset [name]`** — apply a predefined configuration preset (saas, clinic, studio, operations, commerce) to an existing project.
+- **`loom rename <new-name>`** — rebrand the CLI itself: updates `branding.json`, `package.json` bin key, help text, and output.
+- **`loom usage`** — writes a comprehensive `CLI_USAGE.md` reference to the project root documenting every command, flag, and format.
+- **`loom completion [shell]`** — generate bash/zsh completion scripts for the CLI.
+
+### Changed
+
+- All commands now pass global flags (`--quiet`, `--json`, `--no-color`, `--debug`, `--yes`, `--brief`) through to `reporterFromOptions()` consistently.
+- `loom cleanup` now also removes `CLI_USAGE.md` as part of starter-kit metadata cleanup.
+
+## [1.15.0] — 2026-05-23
+
+### Added
+
+- **`loom validate <scenario>`** — audit a project against a scenario/exam checklist. Uses loose alias matching (`telephone` ≈ `phone`) with a 40% overlap threshold. Reports backend files (model, service, controller, routes, validator) and frontend files (list page, table, form, API client, hook) per entity. Global checks verify `.env`, DB connection, auth middleware, Tailwind config, login page, and auth-protected router.
+
+### Documentation
+
+- Added `Validate` docs page to the documentation website with all 5 scenario checklists.
+- Added `Usage`, `Completion`, `Env`, `Check`, `Preset`, `Rename` sections.
+
+## [1.14.0] — 2026-05-22
+
+### Added
+
+- **`loom explain`** — project structure overview showing resources, routes, modules, theme, auth type, env vars, and deployment configs. Supports `--json` output.
+- **`loom forge`** — hidden exam-scaffold command for academic practical exams. Creates session-based auth (`express-session` + bcrypt + username login) with exact `FirstName_LastName_National_Practical_Exam_2025/` folder structure.
+- **`loom make:resource`** — legacy alias for `loom generate resource` preserving the old command interface.
+- **Extension-driven completion** — shell completion supports `generate resource|module|page|theme|deploy`, `scaffold|validate <scenario>`, `customize theme preset apply|save|list|open`, `backup list|restore`, `cleanup minimal|production|template`, and all global flags.
+
+### Changed
+
+- `Reporter.log()` / `heading()` / `section()` — new human-readable reporting methods for informational commands like `explain`.
+- `loom generate resource` auto-interactive mode: omitting `--fields`, `--file`, `--amend`, or `--relations` auto-enters interactive prompts.
+
 ## [1.13.0] — 2026-05-20
 
 ### Added

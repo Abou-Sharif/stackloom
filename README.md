@@ -12,13 +12,21 @@ to make the whole tool your own.
 ## Install
 
 ```bash
-# one-off
-npx stackloom new my-app
+# one-off (no install required)
+npx stackloom-cli init my-app
 
-# or global
-pnpm add -g stackloom
-loom new my-app
+# or global install
+npm install -g stackloom-cli
+# or: pnpm add -g stackloom-cli
+# or: yarn global add stackloom-cli
+# or: bun add -g stackloom-cli
+
+loom init my-app
 ```
+
+During `loom init`, you choose your package manager (pnpm, npm, yarn, or bun).
+All subsequent commands (`generate`, `finalize`, `doctor`, `cleanup`, etc.)
+automatically use the selected PM.
 
 ## How it works
 
@@ -41,7 +49,7 @@ not an engine change.
 
 | Command                                | What it does                                                          |
 | -------------------------------------- | --------------------------------------------------------------------- |
-| `loom init [name]` / `loom new [name]` | Create a new project from the starter template                        |
+| `loom init [name]` / `loom new [name]` | Create a new project (interactive PM, preset, theme, layout prompts)  |
 | `loom generate resource <Name>`        | Unified, engine-backed generator for full-stack CRUD                  |
 | `loom resource sync <Name>`            | Amend an existing resource (alias for `generate resource --amend`)    |
 | `loom resource add-field <Name>`       | Add a single field to an existing resource (via amend pipeline)       |
@@ -49,29 +57,42 @@ not an engine change.
 | `loom generate page <Name>`            | Frontend page generation with route and nav entry                     |
 | `loom generate theme`                  | Import a shadcn theme                                                 |
 | `loom generate deploy`                 | Generate deployment configuration for Docker, Vercel, Railway         |
+| `loom scaffold <scenario>`             | Generate a complete scenario preset (parking, payroll, etc.)          |
+| `loom validate <scenario>`             | Audit project against a scenario/exam checklist                       |
+| `loom add-report [name]`               | Generate an aggregation pipeline report                               |
 | `loom check`                           | Verify project health: blueprint validity, anchor integrity, env file |
 | `loom upgrade`                         | Check compatibility; add `--write` to apply safe upgrade migrations   |
 | `loom upgrade --dry-run` / `--force`   | Preview or force-overwrite during upgrade                             |
 | `loom backup list`                     | List available upgrade backups                                        |
 | `loom backup restore <id>`             | Restore project from an upgrade backup                                |
 | `loom env [--sync]`                    | Compare `.env` to `.env.example`; `--sync` appends missing keys       |
+| `loom usage`                           | Write `CLI_USAGE.md` reference to project root                        |
+| `loom completion [shell]`              | Generate shell completion script (bash/zsh)                           |
+| `loom explain`                         | Show an overview of the project structure                             |
 | `loom rename <name>`                   | Rebrand the CLI itself (bin name, help text, output)                  |
 | `loom cleanup [preset]`                | Clean or de-brand the project (`minimal`, `production`, `template`)   |
+| `loom preset [name]`                   | Apply a predefined configuration preset                               |
 | `loom customize theme set <name>`      | Switch color palette, radius, shadows (8 themes)                      |
 | `loom customize theme import`          | Import a shadcn CSS theme — auto-applied                              |
+| `loom customize theme preset <action>`  | Apply, save, list, or open shadcn preset codes                        |
 | `loom customize layout set <name>`     | Switch app shell (4 layouts)                                          |
 | `loom customize brand set`             | Update brand name/tagline                                             |
 | `loom customize data set <name>`       | Switch data display template (4 templates)                            |
 | `loom customize ui set <name>`         | Switch card, modal, select, pagination styles (5 variants)            |
 | `loom customize font set [name]`       | Set body and heading fonts (Google Fonts auto-import)                 |
+| `loom customize font list`             | List available font presets                                           |
+| `loom customize component set <component> [variant]` | Switch component layout variant                           |
+| `loom customize component list`        | List all components and their available layout variants               |
 | `loom customize css`                   | Inject custom CSS rules                                               |
 | `loom customize list-*`                | List available themes, layouts, data, UI, fonts                       |
 | `loom wizard`                          | Interactive guided project setup                                      |
-| `loom doctor`                          | Environment and project health check                                  |
+| `loom doctor`                          | Environment and project health check (PM-aware)                       |
 | `loom rollback`                        | Undo the last generation action                                       |
-| `loom finalize`                        | Lint, test, and build for production                                  |
+| `loom finalize`                        | Lint, test, and build for production (uses your PM)                   |
 | `loom preset [name]`                   | Apply a predefined configuration preset                               |
 | `loom remove <type> <name>`            | Remove generated modules or pages                                     |
+| `loom make:resource [name]`            | Legacy alias for `generate resource`                                  |
+| `loom forge` (hidden)                  | Create exam-scaffold with session auth                                |
 
 > `generate module`, `generate page`, and `make:resource` still work but are **superseded** by `generate resource`.
 
@@ -206,7 +227,7 @@ loom rename acme --display-name "ACME"
 ```
 
 Updates `branding.json` and `package.json`'s `bin` key. Re-link with
-`pnpm install` and the tool answers to `acme`.
+your package manager (e.g. `pnpm install` / `npm install`) and the tool answers to `acme`.
 
 ## Preparing a project for handoff
 
@@ -258,17 +279,16 @@ The starter template lives at
 | `HTTP 404 from https://github.com/...`                    | Wrong `defaultRepo` / branch in `config/templates.json` | Edit the config or pass `--local-template`                             |
 | `local template path does not exist: …`                   | Typo in `--local-template` or env var                   | Use the absolute path printed in the error                             |
 | `Template validation failed. Missing required files: ...` | Template is incomplete or wrong directory passed        | `ls -R` the printed path; rerun with `--local-template <correct-path>` |
-| `pnpm install failed in frontend`                         | `pnpm` not installed or network down                    | Run `pnpm -C <project>/frontend install` manually                      |
+| `<pm> install failed in frontend`                         | PM not installed or network down                        | Check the PM is available: `pnpm --version` / `npm --version` / etc.   |
 | `Smoke check failed`                                      | Template shipped without the contract files             | File an issue at the template repo                                     |
 
 ## Local development
 
 ```bash
-cd packages/cli
-pnpm install
+cd stackloom
+pnpm install          # or npm install / yarn / bun
 node bin/cli.js --help
-pnpm test          # vitest — engine, blueprint, recipes, services, schemas
-pnpm test:smoke    # contract smoke test for the MERN template
+pnpm test             # vitest — full test suite
 ```
 
 See [`DEVELOPER.md`](./DEVELOPER.md) for engine internals, [`API.md`](./API.md)
