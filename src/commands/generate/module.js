@@ -13,7 +13,7 @@ const DEFAULT_BACKEND_DIR = "backend";
 
 async function ensureBackendDependencies(projectRoot, backendDir, fields, archLevel) {
   // Only standard/advanced modules need these dependencies
-  if (archLevel === "lightweight") return;
+  if (archLevel === "lightweight" || archLevel === "minimal") return;
 
   const pkgPath = path.join(projectRoot, backendDir, "package.json");
   if (!fs.existsSync(pkgPath)) return;
@@ -71,7 +71,7 @@ export default async function generateModuleCmd(name, options) {
     }
   }
 
-  let archLevel = options.architecture || "moderate";
+  let archLevel = options.architecture || "lightweight";
   if (options.interactive) {
     const answers = await inquirer.prompt([
       {
@@ -79,11 +79,12 @@ export default async function generateModuleCmd(name, options) {
         name: "arch",
         message: "Architecture level for this module:",
         choices: [
-          { name: "Lightweight — inline controller, minimal files", value: "lightweight" },
+          { name: "Lightweight — ship in hours, not days", value: "lightweight" },
+          { name: "Minimal — structured but minimal ceremony", value: "minimal" },
           { name: "Moderate — full layer separation", value: "moderate" },
           { name: "Advanced — with tests, types, domain logic", value: "advanced" },
         ],
-        default: "moderate",
+        default: "lightweight",
       },
     ]);
     archLevel = answers.arch;
@@ -377,7 +378,14 @@ async function generateModuleFiles(projectRoot, moduleName, archLevel, fields, {
   const pascalName = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
 
   if (archLevel === "lightweight") {
-    const { model, controller, middleware, routes } = generateLightweight(moduleName, pascalName, fields);
+    const { model, controller, routes, validator } = generateLightweight(moduleName, pascalName, fields);
+    await fs.writeFile(path.join(modDir, `${moduleName}.model.js`), model);
+    await fs.writeFile(path.join(modDir, `${moduleName}.controller.js`), controller);
+    await fs.writeFile(path.join(modDir, `${moduleName}.routes.js`), routes);
+    await fs.ensureDir(path.join(projectRoot, backendDir, "src/utils/validators"));
+    await fs.writeFile(path.join(projectRoot, backendDir, "src/utils/validators", `${moduleName}.validator.js`), validator);
+  } else if (archLevel === "minimal") {
+    const { model, controller, middleware, routes } = generateMinimal(moduleName, pascalName, fields);
     await fs.writeFile(path.join(modDir, `${moduleName}.model.js`), model);
     await fs.writeFile(path.join(modDir, `${moduleName}.controller.js`), controller);
     await fs.writeFile(path.join(modDir, `${moduleName}.middleware.js`), middleware);
@@ -418,6 +426,108 @@ async function generateModuleFiles(projectRoot, moduleName, archLevel, fields, {
  }
 
 function generateLightweight(moduleName, pascalName, fields) {
+  const schemaFields = fields.map(f => {
+    let def = `${f.name}: { type: `;
+    if (f.type === "number") def += "Number";
+    else if (f.type === "boolean") def += "Boolean";
+    else if (f.type === "date") def += "Date";
+    else def += "String";
+    const constraints = [];
+    if (f.validation?.required) constraints.push("required: true");
+    if (f.validation?.unique) constraints.push("unique: true");
+    if (constraints.length > 0) def += `, ${constraints.join(", ")}`;
+    return def + " }";
+  }).join(",\n    ");
+
+  const model = `const mongoose = require("mongoose");
+
+const ${moduleName}Schema = new mongoose.Schema(
+  {
+    ${schemaFields}
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("${pascalName}", ${moduleName}Schema);
+`;
+
+  const joiFields = fields.map(f => {
+    const rules = [`Joi.${f.type === 'number' ? 'number()' : f.type === 'boolean' ? 'boolean()' : 'string()'}`];
+    if (f.validation?.required) rules.push("required()");
+    if (f.type === 'email') rules.push("email()");
+    if (f.validation?.minLength) rules.push(`min(${f.validation.minLength})`);
+    if (f.validation?.maxLength) rules.push(`max(${f.validation.maxLength})`);
+    if (f.validation?.pattern) rules.push(`pattern(/${f.validation.pattern}/)`);
+    return `  ${f.name}: ${rules.join('.')}`;
+  }).join(",\n");
+
+  const validator = `const Joi = require("joi");
+
+exports.create = Joi.object({
+${joiFields},
+});
+`;
+
+  const controller = `const ${pascalName} = require("./${moduleName}.model");
+
+const create = async (req, res, next) => {
+  try {
+    const doc = await ${pascalName}.create(req.body);
+    res.status(201).json(doc);
+  } catch (err) { next(err); }
+};
+
+const list = async (req, res, next) => {
+  try {
+    const docs = await ${pascalName}.find().sort("-createdAt");
+    res.json(docs);
+  } catch (err) { next(err); }
+};
+
+const getOne = async (req, res, next) => {
+  try {
+    const doc = await ${pascalName}.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: "${pascalName} not found" });
+    res.json(doc);
+  } catch (err) { next(err); }
+};
+
+const update = async (req, res, next) => {
+  try {
+    const doc = await ${pascalName}.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!doc) return res.status(404).json({ error: "${pascalName} not found" });
+    res.json(doc);
+  } catch (err) { next(err); }
+};
+
+const remove = async (req, res, next) => {
+  try {
+    const doc = await ${pascalName}.findByIdAndDelete(req.params.id);
+    if (!doc) return res.status(404).json({ error: "${pascalName} not found" });
+    res.json({ message: "Deleted" });
+  } catch (err) { next(err); }
+};
+
+module.exports = { create, list, getOne, update, remove };
+`;
+
+  const routes = `const express = require("express");
+const router = express.Router();
+const controller = require("./${moduleName}.controller");
+
+router.post("/", controller.create);
+router.get("/", controller.list);
+router.get("/:id", controller.getOne);
+router.put("/:id", controller.update);
+router.delete("/:id", controller.remove);
+
+module.exports = router;
+`;
+
+  return { model, controller, routes, validator };
+}
+
+function generateMinimal(moduleName, pascalName, fields) {
   const schemaFields = fields.map(f => {
     let def = `${f.name}: { type: `;
     

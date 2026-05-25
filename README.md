@@ -67,61 +67,61 @@ change set rolls back.
 
 ---
 
-## ── Creating & extending your project ──
+## ── Commands by architecture level ──
 
-| Command                          | What it does                                              | Best for                    |
-| -------------------------------- | --------------------------------------------------------- | --------------------------- |
-| `loom init <name>`               | Create a new project from the starter template            | Getting started             |
-| `loom wizard`                    | Interactive step-by-step builder                          | Learning / exploring        |
-| `loom scaffold <scenario>`       | Generate a complete scenario preset (parking, payroll…)   | Rapid prototyping           |
-| `loom init --scenario <name>`    | Create + scaffold in one command                          | One-shot setup              |
-| `loom generate resource <Name>`  | Full-stack CRUD — API + pages + nav, all wired            | Adding features             |
-| `loom add-report [name]`         | Aggregation pipeline report (backend + frontend)          | Analytics / dashboards      |
-| `loom remove <type> <name>`      | Remove a generated module or page                         | Cleanup                     |
+StackLoom adapts to your experience level. Start with **Lightweight** — just
+a few simple commands. As your project grows, unlock more.
 
-## ── Customizing your project ──
+### ⚡ Lightweight — start here
 
-| Command                                              | What it does                                    |
-| ---------------------------------------------------- | ----------------------------------------------- |
-| `loom customize theme set <name>`                    | Switch color palette, radius, shadows (8 themes)|
-| `loom customize theme import --file <path>`          | Import a shadcn CSS theme — auto-applied        |
-| `loom customize layout set <name>`                   | Switch app shell (4 layouts)                    |
-| `loom customize brand set --name "X" --tagline "Y"`  | Update brand name/tagline                       |
-| `loom customize data set <name>`                     | Switch data display template (4 templates)      |
-| `loom customize ui set <name>`                       | Switch card/modal/select/pagination (5 variants)|
-| `loom customize font set <font>`                     | Body + heading fonts (Google Fonts auto-import) |
-| `loom customize css --file ./custom.css`             | Inject custom CSS rules                         |
-| `loom customize component set <component> <variant>` | Switch component layout variant                 |
-| `loom list-themes` / `list-layouts` / `list-ui` / …  | Show available built-in options                 |
+| Command | What it does |
+| ------- | ------------ |
+| `loom init <name>` | Create a new project from the starter template |
+| `loom wizard` | Interactive step-by-step builder (great for learning) |
+| `loom ai describe <description>` | Describe what you want in plain English — get a StackLoom spec back |
+| `loom ai scaffold <description>` | Design and generate a whole system (multi-resource) from one sentence |
+| `loom ai configure` | Set up your AI provider (API key, model, URL) — one-time setup |
+| `loom ai feedback` | Rate and review generated code — helps improve future results |
 
-## ── Project health & deployment ──
+### 📈 Moderate — growing projects
 
-| Command                       | What it does                                              |
-| ----------------------------- | --------------------------------------------------------- |
-| `loom doctor`                 | Check Node, PM, project structure                         |
-| `loom check`                  | Verify blueprint, anchors, env                            |
-| `loom env [--sync]`           | Diff `.env` against `.env.example`                        |
-| `loom finalize`               | Lint, test, build — production readiness                  |
-| `loom cleanup [preset]`       | De-brand project for handoff                              |
-| `loom upgrade`                | Check CLI vs template compatibility                       |
-| `loom upgrade --write`        | Apply safe template upgrades                              |
-| `loom rollback`               | Undo the last generation                                  |
-| `loom validate <scenario>`    | Audit project against a scenario/exam checklist           |
-| `loom explain`                | Show project overview (resources, routes, theme, auth…)   |
+| Command | What it does |
+| ------- | ------------ |
+| `loom generate resource <Name>` | Full-stack CRUD — API + pages + nav, all wired up |
+| `loom ai generate [name] [desc]` | Generate a resource from a natural-language description |
+| `loom ai fix <resource> <issue>` | Tell StackLoom what's wrong — it diagnoses and fixes the resource |
+| `loom ai change <resource> <change>` | Describe a change to an existing resource — StackLoom applies it |
+| `loom scaffold <scenario>` | Generate a complete scenario preset (parking, payroll, …) |
+| `loom remove <type> <name>` | Remove a generated module or page |
+| `loom add-report [name]` | Aggregation pipeline report (backend + frontend) |
 
-## ── Utility & advanced ──
+### 🔧 Advanced — full control
 
-| Command                        | What it does                                              |
-| ------------------------------ | --------------------------------------------------------- |
-| `loom rename <name>`           | Rebrand the CLI itself (bin name, help text)              |
-| `loom preset [name]`           | Apply a predefined configuration preset                   |
-| `loom usage`                   | Write `CLI_USAGE.md` reference to project root            |
-| `loom completion [bash\|zsh]`  | Generate shell completion script                          |
-| `loom forge` (hidden)          | Create exam-scaffold with session auth                    |
-| `loom make:resource [name]`    | Legacy alias for `generate resource`                      |
+| Command | What it does |
+| ------- | ------------ |
+| `loom customize theme set <name>` | Switch color palette, radius, shadows (8 themes) |
+| `loom customize layout set <name>` | Switch app shell (4 layouts) |
+| `loom customize brand set --name "X"` | Update brand name/tagline |
+| `loom customize data set <name>` | Switch data display template (4 templates) |
+| `loom customize ui set <name>` | Switch card/modal/select/pagination |
+| `loom customize font set <font>` | Body + heading fonts (Google Fonts auto-import) |
+| `loom customize css --file ./custom.css` | Inject custom CSS rules |
+| `loom customize component set <c> <v>` | Switch component layout variant |
+| `loom doctor` | Check Node.js, PM, project structure |
+| `loom check` | Verify blueprint, anchors, env |
+| `loom env [--sync]` | Diff `.env` against `.env.example` |
+| `loom finalize` | Lint, test, build — production readiness |
+| `loom cleanup [preset]` | De-brand project for handoff |
+| `loom upgrade [--write]` | Check and apply safe template upgrades |
+| `loom validate <scenario>` | Audit project against a scenario/exam checklist |
+| `loom explain` | Show project overview (resources, routes, theme, auth) |
+| `loom rename <name>` | Rebrand the CLI itself (bin name, help text) |
+| `loom usage` | Write `CLI_USAGE.md` reference to project root |
+| `loom backup` / `loom rollback` | Safety nets — backup and undo |
+| `loom completion [bash\|zsh]` | Generate shell completion script |
 
-> `generate module`, `generate page`, and `make:resource` still work but are
-> **superseded** by `generate resource` — the unified engine-backed generator.
+_`generate module`, `generate page`, and `make:resource` still work but are
+superseded by `generate resource` — the unified engine-backed generator._
 
 ---
 

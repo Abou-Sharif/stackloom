@@ -1,0 +1,151 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+export default function <%= resource.pascalName %>ListPage() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [form, setForm] = useState({<% resource.fields.forEach(function(f, i) { -%><%= f.name %>: ''<% if (i < resource.fields.length - 1) { %>, <% } %><% }); %>});
+  const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    axios.get('/api/<%= resource.pluralKebab %>')
+      .then(r => { setItems(r.data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const validate = () => {
+    const e = {};
+<% resource.fields.forEach(function(f) { -%>
+  <% if (f.validation.required) { -%>
+    if (!form.<%= f.name %>.trim()) e.<%= f.name %> = 'Required';
+  <% } -%>
+  <% if (f.type === 'email' && f.validation.required) { -%>
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.<%= f.name %>)) e.<%= f.name %> = 'Invalid email';
+  <% } -%>
+  <% if (f.validation.minLength) { -%>
+    else if (form.<%= f.name %>.length < <%= f.validation.minLength %>) e.<%= f.name %> = 'Min <%= f.validation.minLength %> characters';
+  <% } -%>
+  <% if (f.validation.maxLength) { -%>
+    else if (form.<%= f.name %>.length > <%= f.validation.maxLength %>) e.<%= f.name %> = 'Max <%= f.validation.maxLength %> characters';
+  <% } -%>
+  <% if (f.validation.pattern) { -%>
+    else if (!/<%- f.validation.pattern %>/.test(form.<%= f.name %>)) e.<%= f.name %> = 'Invalid format';
+  <% } -%>
+<% }); -%>
+    return e;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+    const errors = validate();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) return;
+    try {
+      if (editingId) {
+        await axios.put(`/api/<%= resource.pluralKebab %>/${editingId}`, form);
+        setMessage('<%= resource.pascalName %> updated');
+      } else {
+        await axios.post('/api/<%= resource.pluralKebab %>', form);
+        setMessage('<%= resource.pascalName %> created');
+      }
+      setForm({<% resource.fields.forEach(function(f, i) { -%><%= f.name %>: ''<% if (i < resource.fields.length - 1) { %>, <% } %><% }); %>});
+      setEditingId(null);
+      setShowForm(false);
+      const r = await axios.get('/api/<%= resource.pluralKebab %>');
+      setItems(r.data);
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err) {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Something went wrong';
+      setMessage(msg);
+    }
+  };
+
+  const handleEdit = (item) => {
+    setForm({<% resource.fields.forEach(function(f, i) { -%><%= f.name %>: item.<%= f.name %> || ''<% if (i < resource.fields.length - 1) { %>, <% } %><% }); %>});
+    setEditingId(item._id);
+    setShowForm(true);
+    setFieldErrors({});
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this <%= resource.name %>?')) return;
+    try {
+      await axios.delete(`/api/<%= resource.pluralKebab %>/${id}`);
+      setMessage('<%= resource.pascalName %> deleted');
+      const r = await axios.get('/api/<%= resource.pluralKebab %>');
+      setItems(r.data);
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err) {
+      setMessage(err.response?.data?.error || 'Delete failed');
+    }
+  };
+
+  if (loading) return <div className="p-4 text-gray-500">Loading...</div>;
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold"><%= resource.pluralPascal %></h1>
+        <button onClick={() => { setShowForm(!showForm); setEditingId(null); setForm({<% resource.fields.forEach(function(f, i) { -%><%= f.name %>: ''<% if (i < resource.fields.length - 1) { %>, <% } %><% }); %>}); setFieldErrors({}); }}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          {showForm ? 'Cancel' : 'Add <%= resource.name %>'}
+        </button>
+      </div>
+
+      {message && (
+        <div className="mb-4 p-3 bg-green-100 text-green-800 rounded">{message}</div>
+      )}
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="mb-6 p-4 border rounded bg-gray-50">
+          <h2 className="text-lg font-semibold mb-3">{editingId ? 'Edit' : 'Create'} <%= resource.name %></h2>
+          <div className="grid gap-3">
+<% resource.fields.forEach(function(f) { -%>
+            <div>
+              <label className="block text-sm font-medium mb-1"><%- f.name.charAt(0).toUpperCase() + f.name.slice(1) %></label>
+              <input value={form.<%= f.name %>} onChange={e => setForm({...form, <%= f.name %>: e.target.value})}
+                className="w-full border p-2 rounded" />
+              {fieldErrors.<%= f.name %> && <p className="text-red-500 text-xs mt-1">{fieldErrors.<%= f.name %>}</p>}
+            </div>
+<% }); -%>
+          </div>
+          <button type="submit" className="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            {editingId ? 'Update' : 'Create'}
+          </button>
+        </form>
+      )}
+
+      <div className="overflow-x-auto border rounded">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-100">
+<% resource.fields.forEach(function(f) { -%>
+              <th className="border-b p-2 text-left text-sm font-medium"><%- f.name.charAt(0).toUpperCase() + f.name.slice(1) %></th>
+<% }); -%>
+              <th className="border-b p-2 text-right text-sm font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr><td colSpan="<%= resource.fields.length + 1 %>" className="p-4 text-center text-gray-500">No <%= resource.pluralPascal.toLowerCase() %> found</td></tr>
+            ) : items.map(item => (
+              <tr key={item._id} className="hover:bg-gray-50">
+<% resource.fields.forEach(function(f) { -%>
+                <td className="border-b p-2 text-sm">{item.<%= f.name %>}</td>
+<% }); -%>
+                <td className="border-b p-2 text-right">
+                  <button onClick={() => handleEdit(item)} className="text-blue-600 hover:underline text-sm mr-2">Edit</button>
+                  <button onClick={() => handleDelete(item._id)} className="text-red-600 hover:underline text-sm">Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

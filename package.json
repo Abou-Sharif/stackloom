@@ -1,6 +1,6 @@
 {
   "name": "stackloom-cli",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "description": "Stackloom CLI — weave production-ready full-stack apps. Recipe-driven, transactional code generation for MERN and beyond.",
   "type": "module",
   "bin": {

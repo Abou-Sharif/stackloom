@@ -1,0 +1,9 @@
+const mongoose = require('mongoose');
+
+const <%= resource.pascalName %>Schema = new mongoose.Schema({
+<% resource.fields.forEach(function(field) { -%>
+  <%- field.name %>: { type: <%- field.mongooseType %><%- field.validation.required ? ', required: true' : '' %><%- field.validation.unique ? ', unique: true' : '' %> },
+<% }); -%>
+}, { timestamps: true });
+
+module.exports = mongoose.model('<%= resource.pascalName %>', <%= resource.pascalName %>Schema);

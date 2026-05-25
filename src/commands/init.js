@@ -328,11 +328,12 @@ export default async function initCmd(projectName, options) {
       name: "architecture",
       message: "Architecture level:",
       choices: [
-        { name: "Lightweight (Minimalist)", value: "lightweight" },
-        { name: "Moderate (Standard MERN)", value: "moderate" },
-        { name: "Advanced (Enterprise Ready)", value: "advanced" },
+        { name: "Lightweight — ship in hours, not days", value: "lightweight" },
+        { name: "Minimal — structured but minimal ceremony", value: "minimal" },
+        { name: "Moderate — standard MERN layered pattern", value: "moderate" },
+        { name: "Advanced — enterprise-ready with batch ops", value: "advanced" },
       ],
-      default: "moderate",
+      default: "lightweight",
     });
   }
 
@@ -983,6 +984,192 @@ export async function cleanupGeneratedProject(projectRoot, config) {
         }
       }
     }
+  }
+
+  // ── 1a. Lightweight architecture: remove heavy UI, config, and simplify entry points ──
+  if (config.architecture === "lightweight") {
+    const LIGHTWEIGHT_DIRS = [
+      "frontend/src/components/ui",
+      "frontend/src/variants",
+      "frontend/src/components/layout",
+      "frontend/src/components/common",
+      "frontend/src/components/data",
+      "frontend/src/components/forms",
+      "frontend/src/hooks",
+      "frontend/src/store",
+      "frontend/src/context",
+      "frontend/src/lib",
+      "frontend/src/pages",
+      "frontend/src/api",
+    ];
+    for (const rel of LIGHTWEIGHT_DIRS) {
+      const fp = path.join(projectRoot, rel);
+      try { await fs.remove(fp); } catch { /* already gone */ }
+    }
+
+    // Remove heavy frontend deps
+    const fePkgPath = path.join(projectRoot, "frontend", "package.json");
+    if (await fs.pathExists(fePkgPath)) {
+      const LIGHTWEIGHT_FE_DEPS = [
+        "@hookform/resolvers", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu",
+        "@radix-ui/react-slot", "@tanstack/react-query", "class-variance-authority",
+        "lucide-react", "react-hook-form", "sonner", "zustand", "zod",
+      ];
+      try {
+        const pkg = await fs.readJSON(fePkgPath);
+        let changed = false;
+        for (const name of LIGHTWEIGHT_FE_DEPS) {
+          if (pkg.dependencies && pkg.dependencies[name]) {
+            delete pkg.dependencies[name];
+            changed = true;
+          }
+        }
+        if (changed) await fs.writeJSON(fePkgPath, pkg, { spaces: 2 });
+      } catch { /* non-fatal */ }
+    }
+
+    // Remove heavy backend deps
+    const bePkgPath = path.join(projectRoot, "backend", "package.json");
+    if (await fs.pathExists(bePkgPath)) {
+      const LIGHTWEIGHT_BE_DEPS = [
+        "bcryptjs", "cls-rtracer", "cookie-parser", "express-rate-limit",
+        "express-validator", "helmet", "jsonwebtoken", "morgan", "slugify",
+        "swagger-jsdoc", "swagger-ui-express", "winston",
+      ];
+      const LIGHTWEIGHT_BE_DEVDEPS = [
+        "@types/bcryptjs", "@types/cookie-parser", "@types/cors", "@types/express",
+        "@types/jsonwebtoken", "@types/mongoose", "@types/morgan", "@types/supertest",
+        "autocannon", "k6", "mongodb-memory-server", "snyk", "supertest",
+      ];
+      try {
+        const pkg = await fs.readJSON(bePkgPath);
+        let changed = false;
+        for (const name of LIGHTWEIGHT_BE_DEPS) {
+          if (pkg.dependencies && pkg.dependencies[name]) { delete pkg.dependencies[name]; changed = true; }
+        }
+        for (const name of LIGHTWEIGHT_BE_DEVDEPS) {
+          if (pkg.devDependencies && pkg.devDependencies[name]) { delete pkg.devDependencies[name]; changed = true; }
+        }
+        if (changed) await fs.writeJSON(bePkgPath, pkg, { spaces: 2 });
+      } catch { /* non-fatal */ }
+    }
+
+    // Remove backend utils for ApiResponse/ApiError, middleware, auth module
+    const LIGHTWEIGHT_BACKEND_FILES = [
+      "backend/src/utils/ApiResponse.js",
+      "backend/src/utils/ApiError.js",
+      "backend/src/utils/asyncHandler.js",
+      "backend/src/utils/logger.js",
+      "backend/src/utils/tokenUtils.js",
+      "backend/src/middlewares/auth.middleware.js",
+      "backend/src/middlewares/error.middleware.js",
+      "backend/src/middlewares/validate.js",
+      "backend/src/middlewares/rateLimiter.js",
+      "backend/src/middlewares/notFound.middleware.js",
+      "backend/src/config/swagger.js",
+      "backend/src/modules/auth/auth.controller.js",
+      "backend/src/modules/auth/auth.service.js",
+      "backend/src/modules/auth/auth.model.js",
+      "backend/src/modules/auth/auth.routes.js",
+      "backend/src/modules/auth/auth.validator.js",
+    ];
+    for (const rel of LIGHTWEIGHT_BACKEND_FILES) {
+      const fp = path.join(projectRoot, rel);
+      try { await fs.remove(fp); } catch { /* already gone */ }
+    }
+
+    // Remove empty dirs left behind
+    try { const leftover = await fs.readdir(path.join(projectRoot, "backend", "src", "modules", "auth")); if (leftover.length === 0) await fs.remove(path.join(projectRoot, "backend", "src", "modules", "auth")); } catch {}
+    try { const leftover = await fs.readdir(path.join(projectRoot, "backend", "src", "middlewares")); if (leftover.length === 0) await fs.remove(path.join(projectRoot, "backend", "src", "middlewares")); } catch {}
+    try { const leftover = await fs.readdir(path.join(projectRoot, "frontend", "src", "config")); if (leftover.length === 0) await fs.remove(path.join(projectRoot, "frontend", "src", "config")); } catch {}
+    try { const leftover = await fs.readdir(path.join(projectRoot, "frontend", "src", "utils")); if (leftover.length === 0) await fs.remove(path.join(projectRoot, "frontend", "src", "utils")); } catch {}
+
+    // Simplify entry files for lightweight
+    const LW_MAIN = `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
+`;
+    const LW_APP = `import { AppRouter } from './routes/AppRouter';
+
+export default function App() {
+  return <AppRouter />;
+}
+`;
+    const LW_ROUTER = `import { Routes, Route } from 'react-router-dom';
+
+export function AppRouter() {
+  return (
+    <Routes>
+      <Route path="/" element={<div className="p-4"><h1 className="text-2xl font-bold">Welcome</h1></div>} />
+    </Routes>
+  );
+}
+`;
+    const LW_SERVER = `const mongoose = require('mongoose');
+const app = require('./src/app');
+const PORT = process.env.PORT || 5000;
+
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/app')
+  .then(() => app.listen(PORT, () => console.log('Server on port ' + PORT)))
+  .catch(err => { console.error(err); process.exit(1); });
+`;
+    const LW_APP_JS = `const express = require('express');
+const cors = require('cors');
+const routes = require('./routes');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use('/api', routes);
+app.use((err, req, res, next) => {
+  res.status(err.status || 500).json({ error: err.message || 'Internal error' });
+});
+
+module.exports = app;
+`;
+    const LW_ROUTES = `const router = require('express').Router();
+router.get('/health', (req, res) => res.json({ ok: true }));
+module.exports = router;
+`;
+    try { await fs.writeFile(path.join(projectRoot, "frontend", "src", "main.jsx"), LW_MAIN); } catch {}
+    try { await fs.writeFile(path.join(projectRoot, "frontend", "src", "App.jsx"), LW_APP); } catch {}
+    try {
+      await fs.ensureDir(path.join(projectRoot, "frontend", "src", "routes"));
+      await fs.writeFile(path.join(projectRoot, "frontend", "src", "routes", "AppRouter.jsx"), LW_ROUTER);
+    } catch {}
+    try { await fs.writeFile(path.join(projectRoot, "backend", "server.js"), LW_SERVER); } catch {}
+    try { await fs.writeFile(path.join(projectRoot, "backend", "src", "app.js"), LW_APP_JS); } catch {}
+    try {
+      await fs.ensureDir(path.join(projectRoot, "backend", "src", "routes"));
+      await fs.writeFile(path.join(projectRoot, "backend", "src", "routes", "index.js"), LW_ROUTES);
+    } catch {}
+
+    // Remove leftover config files that don't apply
+    const LW_CONFIG_REMOVE = [
+      "frontend/src/config/design-layouts.js",
+      "frontend/src/config/design-themes.js",
+      "frontend/src/config/ui-variants.js",
+      "frontend/src/config/component-layouts.js",
+      "frontend/src/config/data-display-templates.js",
+      "frontend/src/config/DESIGN_PRESETS.md",
+      "frontend/src/utils/constants.js",
+      "frontend/src/utils/formatters.js",
+    ];
+    for (const rel of LW_CONFIG_REMOVE) {
+      try { await fs.remove(path.join(projectRoot, rel)); } catch {}
+    }
+
+    return; // lightweight is done — skip preset/variant cleanup below
   }
 
   // ── 1b. Remove deferred UI components (not needed at init) ─────

@@ -37,7 +37,7 @@ Generate a full-stack resource (model, controller, routes, validator, frontend p
 |---|---|
 | \`--fields <spec>\` | Field spec: \`name:type:rules;...\` (e.g. \`email:email:required\|unique\`) |
 | \`--file <path>\` | Path to a resource definition file |
-| \`--arch <level>\` | Architecture: \`lightweight\` | \`moderate\` | \`advanced\` (default: moderate) |
+| \`--arch <level>\` | Architecture: \`lightweight\` | \`minimal\` | \`moderate\` | \`advanced\` (default: lightweight) |
 | \`--relations <spec>\` | Virtual hasMany: \`field:hasMany:Model:foreignKey\` (repeat with \`;\`) |
 | \`--crud <mode>\` | CRUD scope: \`full\` | \`insert-only\` (default: full) |
 | \`--form-mode <mode>\` | Form display: \`page\` | \`modal\` | \`sidepanel\` | \`inline\` |
@@ -70,7 +70,7 @@ Generate backend module (model, service, controller, routes, validator).
 | Option | Description |
 |---|---|
 | \`--fields <spec>\` | Field specification |
-| \`--arch <level>\` | Architecture: \`lightweight\` | \`moderate\` | \`advanced\` |
+| \`--arch <level>\` | Architecture: \`lightweight\` | \`minimal\` | \`moderate\` | \`advanced\` |
 | \`--interactive\` | Prompt for fields interactively |
 | \`--with-page\` | Generate corresponding frontend page |
 | \`--form-mode <mode>\` | Form mode if \`--with-page\`: \`page\` | \`modal\` | \`sidepanel\` | \`inline\` |

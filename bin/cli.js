@@ -47,6 +47,17 @@ import addReportCmd from "../src/commands/add-report.js";
 import { completion } from "../src/utils/completion.js";
 import scaffoldCmd from "../src/commands/scaffold.js";
 
+// ── AI commands ─────────────────────────────────────────────────────
+import aiDescribe from "../src/commands/ai/describe.js";
+import aiGenerate from "../src/commands/ai/generate.js";
+import aiFix from "../src/commands/ai/fix.js";
+import aiChange from "../src/commands/ai/change.js";
+import aiFeedback from "../src/commands/ai/feedback.js";
+import aiScaffold from "../src/commands/ai/scaffold.js";
+import aiConfigure from "../src/commands/ai/configure.js";
+import { archLevelIndex } from "../src/commands/ai/index.js";
+import { getProjectArch } from "../src/commands/ai/index.js";
+
 program
   .name(branding.binName)
   .description(`${branding.description}\n\nQuick start:\n  loom init <name>              Create a new project\n  loom wizard                   Interactive step-by-step guide\n  loom generate resource <name> Generate a full-stack resource`)
@@ -517,6 +528,132 @@ program
   .description("Generate a complete scenario preset: parking|payroll|inventory|booking|delivery")
   .option("--force", "Overwrite existing files")
   .action((scenario, options) => scaffoldCmd(scenario, { ...program.opts(), ...options }));
+
+// ── AI command group ────────────────────────────────────────────────
+const aiCmd = program
+  .command("ai")
+  .description("AI-powered code generation and project assistance");
+
+// Commands tagged with _minArch for tiered help display
+aiCmd
+  .command("describe <description>")
+  .description("Describe what you want in plain English — get a StackLoom spec back")
+  .option("-o, --output <path>", "Write spec JSON to a file")
+  .action((description, options) =>
+    aiDescribe(description, { ...program.opts(), ...options }),
+  );
+aiCmd.commands.at(-1)._minArch = "lightweight";
+
+aiCmd
+  .command("generate [resource-name] [description]")
+  .description("Generate a real resource from a natural-language description")
+  .option("--arch <level>", "Architecture: lightweight|moderate|advanced")
+  .option("--no-frontend", "Skip frontend generation")
+  .option("--crud <mode>", "CRUD scope: full|insert-only")
+  .option("--form-mode <mode>", "Form mode: page|modal|sidepanel|inline")
+  .action((resourceName, description, options) =>
+    aiGenerate(resourceName, description, { ...program.opts(), ...options }),
+  );
+aiCmd.commands.at(-1)._minArch = "moderate";
+
+aiCmd
+  .command("fix <resource-name> <issue>")
+  .description("Tell StackLoom what's wrong — it diagnoses and fixes the resource")
+  .action((resourceName, issue, options) =>
+    aiFix(resourceName, issue, { ...program.opts(), ...options }),
+  );
+aiCmd.commands.at(-1)._minArch = "moderate";
+
+aiCmd
+  .command("change <resource-name> <change-description>")
+  .description("Describe a change to an existing resource — StackLoom applies it")
+  .action((resourceName, changeDescription, options) =>
+    aiChange(resourceName, changeDescription, { ...program.opts(), ...options }),
+  );
+aiCmd.commands.at(-1)._minArch = "moderate";
+
+aiCmd
+  .command("scaffold <description>")
+  .description("Design and generate a whole system (multi-resource) from a single description")
+  .option("--arch <level>", "Architecture: lightweight|moderate|advanced")
+  .option("--no-frontend", "Skip frontend generation")
+  .option("--dry-run", "Preview the design without generating")
+  .option("-y, --yes", "Skip confirmation prompt")
+  .action((description, options) =>
+    aiScaffold(description, { ...program.opts(), ...options }),
+  );
+aiCmd.commands.at(-1)._minArch = "lightweight";
+
+aiCmd
+  .command("feedback")
+  .description("Rate and review generated code — helps improve future results")
+  .option("--rating <number>", "Rating 1-5")
+  .option("--msg <text>", "Feedback message")
+  .option("--review", "Show all recorded feedback")
+  .option("--command <text>", "Command that was run")
+  .action((options) => {
+    const action = options.review ? "review" : "save";
+    aiFeedback(action, { ...program.opts(), ...options });
+  });
+aiCmd.commands.at(-1)._minArch = "lightweight";
+
+aiCmd
+  .command("configure")
+  .description("Set up your AI provider (API key, model, URL) — one-time setup")
+  .action((options) => aiConfigure({ ...program.opts(), ...options }));
+aiCmd.commands.at(-1)._minArch = "lightweight";
+
+// ── Tiered help: show only commands relevant to the project's arch level ──
+const ARCH_LABELS = {
+  lightweight: "LIGHTWEIGHT — start here:",
+  moderate: "MODERATE — growing projects:",
+  advanced: "ADVANCED — full control:",
+};
+const ARCH_DESCS = {
+  lightweight: "  High-level commands to describe, scaffold, and give feedback.\n",
+  moderate: "  Add, fix, and change resources with precision.\n",
+  advanced: "  Every command available.\n",
+};
+
+const origHelpInfo = aiCmd.helpInformation.bind(aiCmd);
+aiCmd.helpInformation = function () {
+  const activeArch = getProjectArch();
+  const activeIdx = archLevelIndex(activeArch);
+  const activeCommands = this.commands.filter((cmd) => {
+    if (cmd.name() === "help") return false;
+    const minIdx = archLevelIndex(cmd._minArch || "lightweight");
+    return minIdx <= activeIdx;
+  });
+
+  const groups = { lightweight: [], moderate: [], advanced: [] };
+  for (const cmd of activeCommands) {
+    groups[cmd._minArch || "lightweight"].push(cmd);
+  }
+
+  const lines = [
+    `Usage: loom ai [options] [command]\n`,
+    `AI-powered code generation and project assistance\n`,
+    `Project architecture: ${activeArch.toUpperCase()}\n`,
+  ];
+
+  const tiers = ["lightweight", "moderate", "advanced"];
+  for (const tier of tiers) {
+    const cmds = groups[tier];
+    if (!cmds.length) continue;
+    lines.push(`  ${ARCH_LABELS[tier]}`);
+    lines.push(ARCH_DESCS[tier]);
+    for (const cmd of cmds) {
+      const name = cmd.name();
+      const desc = cmd.description();
+      lines.push(`    ${name.padEnd(18)}${desc}`);
+    }
+    lines.push("");
+  }
+
+  lines.push("Options:");
+  lines.push("  -h, --help  display help for command");
+  return lines.join("\n");
+};
 
 // Validate — project audit against an exam or scenario checklist
 program

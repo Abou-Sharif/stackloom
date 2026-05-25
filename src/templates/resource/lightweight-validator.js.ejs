@@ -1,0 +1,15 @@
+const Joi = require('joi');
+
+exports.create = Joi.object({
+<% resource.fields.forEach(function(field) { -%>
+  <%- field.name %>: <%- field.joiRule %>,
+<% }); -%>
+});
+
+<% if (options.crud !== 'insert-only') { -%>
+exports.update = Joi.object({
+<% resource.fields.forEach(function(field) { -%>
+  <%- field.name %>: <%- field.validation.required ? field.joiRule.replace(/\.required\(\)/, '.optional()') : field.joiRule %>,
+<% }); -%>
+});
+<% } -%>

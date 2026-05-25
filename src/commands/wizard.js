@@ -351,17 +351,12 @@ export default async function wizardCmd(options) {
           name: "architecture",
           message: "Architecture level for this module:",
           choices: [
-            {
-              name: "Lightweight — minimal files and quick setup",
-              value: "lightweight",
-            },
-            {
-              name: "Moderate — standard MERN module structure",
-              value: "moderate",
-            },
+            { name: "Lightweight — ship in hours, not days", value: "lightweight" },
+            { name: "Minimal — structured but minimal ceremony", value: "minimal" },
+            { name: "Moderate — standard MERN layered pattern", value: "moderate" },
             { name: "Advanced — enterprise-ready patterns", value: "advanced" },
           ],
-          default: "moderate",
+          default: "lightweight",
         },
       ]);
       steps.push({

@@ -13,7 +13,7 @@ export class Generator {
    */
   constructor(options = {}) {
     this.projectRoot = options.projectRoot || process.cwd();
-    this.arch = options.architecture || "moderate";
+    this.arch = options.architecture || "lightweight";
     this.dryRun = options.dryRun || false;
     this.verbose = options.verbose || false;
     this.force = options.force || false;

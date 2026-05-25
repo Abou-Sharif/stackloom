@@ -806,11 +806,12 @@ async function promptGenerateResourceOptions(type, name, options) {
         name: "arch",
         message: "Architecture level:",
         choices: [
-          { name: "Lightweight — minimal structure", value: "lightweight" },
-          { name: "Moderate — standard MERN", value: "moderate" },
+          { name: "Lightweight — ship in hours, not days", value: "lightweight" },
+          { name: "Minimal — structured but minimal ceremony", value: "minimal" },
+          { name: "Moderate — standard MERN layered pattern", value: "moderate" },
           { name: "Advanced — enterprise-ready", value: "advanced" },
         ],
-        default: "moderate",
+        default: "lightweight",
       },
     ]);
     interactiveOptions.arch = arch;
@@ -928,7 +929,7 @@ export default async function generateResource(type, name, options = {}) {
     const recipeContext = {
       withFrontend: executionOptions.frontend !== false,
       withTests: Boolean(executionOptions.withTests),
-      architecture: executionOptions.arch || "moderate",
+      architecture: executionOptions.arch || "lightweight",
       formMode: executionOptions.formMode || "page",
       crud: executionOptions.crud || "full",
       usesTypeScript: blueprint.usesTypeScript(projectRoot),
@@ -1097,14 +1098,21 @@ async function ensureResourceDependencies(projectRoot, resource, reporter) {
     `This resource requires extra packages: ${pkgList}`,
   );
 
-  const { install } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "install",
-      message: `Install ${pkgList}?`,
-      default: true,
-    },
-  ]);
+  let install = true;
+  const isCi = process.env.CI === "true" || process.env.CI === "1";
+  if (!isCi) {
+    const result = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "install",
+        message: `Install ${pkgList}?`,
+        default: true,
+      },
+    ]);
+    install = result.install;
+  } else {
+    reporter.info(`CI mode — auto-installing ${pkgList}`);
+  }
 
   if (!install) {
     reporter.info(`Skipped — add manually: ${addCmd(pm)} ${pkgList}`);
@@ -1202,14 +1210,22 @@ async function ensureUiComponents(projectRoot, resource, reporter) {
   const depEntries = Object.entries(missingDeps);
   if (depEntries.length > 0) {
     const depList = depEntries.map(([n, v]) => `${n}@${v}`).join(", ");
-    const { install } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "install",
-        message: `Install missing packages: ${depList}?`,
-        default: true,
-      },
-    ]);
+
+    let install = true;
+    const isCi = process.env.CI === "true" || process.env.CI === "1";
+    if (!isCi) {
+      const result = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "install",
+          message: `Install missing packages: ${depList}?`,
+          default: true,
+        },
+      ]);
+      install = result.install;
+    } else {
+      reporter.info(`CI mode — auto-installing ${depList}`);
+    }
 
     if (install) {
       try {

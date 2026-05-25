@@ -2,6 +2,49 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.21.0] — 2026-05-25
+
+### Added
+
+- **AI command suite** — 7 new commands under `loom ai` for AI-powered code generation:
+  - `loom ai describe <description>` — convert plain English to a StackLoom spec
+  - `loom ai generate [name] [desc]` — describe + generate a resource in one step
+  - `loom ai fix <resource> <issue>` — diagnose and fix issues in existing resources
+  - `loom ai change <resource> <change>` — describe and apply changes to resources
+  - `loom ai scaffold <description>` — design and generate multi-resource systems from a description
+  - `loom ai feedback` — rate and review generated code
+  - `loom ai configure` — interactive AI provider setup (API key, model, URL)
+- **OpenCode Zen integration** — default free model (`deepseek-v4-flash-free`) at `opencode.ai/zen/v1`, no billing needed
+- **AI config system** — `.loom/ai/config.json` with env var override (`STACKLOOM_AI_*`)
+- **Architecture-aware help** — `loom ai --help` shows only commands relevant to the project's arch level (lightweight/moderate/advanced)
+- **Project arch injection** — AI prompts include the project's architecture level so generated specs match the project setting
+- **Regex pattern validation** — `pattern=REGEX` in field specs with 12 built-in regex presets (email, phone, URL, slug, UUID, etc.) and interactive preset selector
+- **Interactive regex picker** — `loom generate resource --interactive` now lists regex presets for the user to choose, with custom regex fallback
+- **Country-specific phone patterns** — 12 country phone formats (KE, TZ, UG, RW, etc.) automatically applied when type is `tel`
+
+### Fixed
+
+- **`toFieldSpec` pattern support** — all 4 AI command files now emit `pattern=...` in field specs (was silently dropped)
+- **`parseJsonResponse` truncation** — handle truncated JSON from LLM responses
+- **`toRelationsSpec` deduplication** — `Set`-based key dedup for belongsTo entries
+- **CI/non-TTY prompt crash** — `inquirer` guarded with `isCi` checks
+- **`--arch` default** — empty string → `"lightweight"` in AI commands
+- **Change detection** — field content vs name-only comparison for amend
+
+### Documentation
+
+- **Docs website** (`stackloom.dev`): 7 new AI command doc pages, sidebar reorganized by architecture tier (⚡ Lightweight / 📈 Moderate / 🔧 Advanced), new Field Validation doc page with regex presets table, CLI Overview grouped by tier
+- **CLI `--help`**: Tiered display for `loom ai --help` based on project `.loom/config.json` architecture
+- **README**: Commands table reorganized by architecture level with plain-English descriptions
+- **Master prompt**: Added validation rules guide with common regex patterns
+- **Customization docs**: Expanded component variant tables for all 8 components (sidebar, navbar, footer, card, modal, button, formLayout, dataDisplay) with descriptions for each variant
+
+### Infrastructure
+
+- `.loom/ai/config.json` added to `.gitignore` (contains API keys)
+- Docs prerender updated to 38 static routes
+- Full test suite: 1206 tests passing across 24 files
+
 ## [1.20.0] — 2026-05-25
 
 ### Added

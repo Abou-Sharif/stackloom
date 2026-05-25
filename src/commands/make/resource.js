@@ -94,7 +94,7 @@ export default async function makeResourceCmd(name, options) {
   try {
     const generator = new Generator({
       projectRoot,
-      architecture: options.arch || 'moderate',
+      architecture: options.arch || 'lightweight',
       dryRun: false,
       verbose: options.verbose,
       force: options.force,
@@ -197,7 +197,7 @@ async function showPreview(projectRoot, resourceDef, options) {
   
   const generator = new Generator({
     projectRoot,
-    architecture: options.arch || 'moderate',
+    architecture: options.arch || 'lightweight',
     dryRun: true,
     verbose: false,
   });
@@ -254,11 +254,12 @@ async function interactiveResourceWizard(name) {
       name: 'arch',
       message: 'Architecture:',
       choices: [
-        { name: 'Lightweight — inline controllers, minimal files', value: 'lightweight' },
-        { name: 'Moderate — full separation (model/service/controller)', value: 'moderate' },
-        { name: 'Advanced — plus tests, DTOs, domain logic', value: 'advanced' },
+        { name: 'Lightweight — ship in hours, not days', value: 'lightweight' },
+        { name: 'Minimal — structured but minimal ceremony', value: 'minimal' },
+        { name: 'Moderate — full layer separation', value: 'moderate' },
+        { name: 'Advanced — plus tests, batch ops', value: 'advanced' },
       ],
-      default: 'moderate',
+      default: 'lightweight',
     },
     {
       type: 'confirm',
