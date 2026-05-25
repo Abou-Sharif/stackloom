@@ -54,6 +54,7 @@ import aiFix from "../src/commands/ai/fix.js";
 import aiChange from "../src/commands/ai/change.js";
 import aiFeedback from "../src/commands/ai/feedback.js";
 import aiScaffold from "../src/commands/ai/scaffold.js";
+import aiBlueprint from "../src/commands/ai/blueprint.js";
 import aiConfigure from "../src/commands/ai/configure.js";
 import { archLevelIndex } from "../src/commands/ai/index.js";
 import { getProjectArch } from "../src/commands/ai/index.js";
@@ -603,6 +604,14 @@ aiCmd
   .action((options) => aiConfigure({ ...program.opts(), ...options }));
 aiCmd.commands.at(-1)._minArch = "lightweight";
 
+aiCmd
+  .command("blueprint")
+  .description("Design a full system interactively — AI asks you questions, then generates everything")
+  .option("--status <slug>", "Show generation progress for a saved blueprint")
+  .option("--resume <slug>", "Resume a saved blueprint and continue generating")
+  .action((options) => aiBlueprint({ ...program.opts(), ...options }));
+aiCmd.commands.at(-1)._minArch = "lightweight";
+
 // ── Tiered help: show only commands relevant to the project's arch level ──
 const ARCH_LABELS = {
   lightweight: "LIGHTWEIGHT — start here:",
@@ -610,7 +619,7 @@ const ARCH_LABELS = {
   advanced: "ADVANCED — full control:",
 };
 const ARCH_DESCS = {
-  lightweight: "  High-level commands to describe, scaffold, and give feedback.\n",
+  lightweight: "  High-level commands to describe, scaffold, blueprint, and give feedback.\n",
   moderate: "  Add, fix, and change resources with precision.\n",
   advanced: "  Every command available.\n",
 };
