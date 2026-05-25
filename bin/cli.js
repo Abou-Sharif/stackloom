@@ -265,7 +265,7 @@ generateCmd
   .description("Import a shadcn/ui theme from CSS variables")
   .option("--file <path>", "Path to CSS file with :root/.dark")
   .option("--paste <css>", "CSS string directly")
-  .option("--fallback <theme>", "Fallback theme (default: executiveBlue)")
+  .option("--fallback <theme>", "Fallback theme (default: calmBlue)")
   .option("--appearance <recipe>", "Appearance: elevated|flat|ux-heavy")
   .option("--apply", "Update app-preset.js automatically")
   .action(generateTheme);
@@ -313,7 +313,7 @@ themeCmd
   .description("Import a custom shadcn/ui theme from CSS")
   .option("--file <path>", "Path to CSS file with :root and .dark")
   .option("--paste <css>", "CSS string directly")
-  .option("--fallback <theme>", "Fallback theme (default: executiveBlue)")
+  .option("--fallback <theme>", "Fallback theme (default: calmBlue)")
   .option("--appearance <recipe>", "Appearance recipe (default: quiet)")
   .action(customize.customizeThemeImport);
 

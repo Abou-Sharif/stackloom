@@ -662,8 +662,8 @@ export async function customizeBrandSet(options) {
   const projectRoot = process.cwd();
   let presetCode = await ensureProject(projectRoot);
 
-  let name = options.name || options.n;
-  let tagline = options.tagline || options.t;
+  let name = options.name;
+  let tagline = options.tagline;
 
   if (!name && !tagline) {
     const answers = await inquirer.prompt([
