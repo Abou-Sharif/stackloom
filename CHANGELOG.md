@@ -2,6 +2,21 @@
 
 All notable changes to the CLI will be documented in this file.
 
+## [1.22.0] — 2026-05-25
+
+### Added
+
+- **`loom ai blueprint`** — interactive scenario-driven system design. Asks the user structured questions (system description, scenario type, entities, business rules, architecture level), then AI designs a complete multi-resource system with dependency-ordered checklist tracking.
+- **Blueprint checklist** — `.loom/ai/blueprints/<slug>-checklist.json` tracks generation progress per resource. Run `loom ai blueprint --status <slug>` to see what's done/pending, `--resume <slug>` to continue interrupted generation.
+- **10 scenario presets** — e-commerce, clinic, task-management, inventory, booking, CMS, finance, HR, education, real-estate + custom.
+- **`master-prompt-blueprint.md`** — dedicated master prompt for scenario-driven system design with dependency-aware resource ordering.
+- **Topological resource sorting** — blueprint generates resources in dependency order (e.g., User before Task), preventing broken refs.
+
+### Documentation
+
+- New docs page: `loom ai blueprint` with scenario table, example session, checklist tracking guide
+- Sidebar updated, docs prerender now 39 routes
+
 ## [1.21.0] — 2026-05-25
 
 ### Added
