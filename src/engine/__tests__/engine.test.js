@@ -231,7 +231,7 @@ describe("createGenerationPipeline", () => {
     projectRoot: root,
     recipe,
     blueprint,
-    recipeContext: { withFrontend: true },
+    recipeContext: { withFrontend: true, architecture: "moderate" },
     vars: { kebab: "order", Name: "Order" },
     templateContext: {},
     ...extra,
@@ -294,7 +294,7 @@ describe("createGenerationPipeline", () => {
     const root = tmp("gen-noinject");
     const { blueprint, recipe } = await setup(root);
     const ctx = await createGenerationPipeline({ renderer: fakeRenderer, withInject: false }).run(
-      invoke(root, blueprint, recipe, { recipeContext: { withFrontend: false } }),
+      invoke(root, blueprint, recipe, { recipeContext: { withFrontend: false, architecture: "moderate" } }),
     );
     expect(ctx.result.files).toHaveLength(5);
     expect(ctx.injections).toBeUndefined();

@@ -38,7 +38,7 @@ export function suggestFlagName(input) {
   return null;
 }
 
-export const ARCHITECTURES = ["lightweight", "moderate", "advanced"];
+export const ARCHITECTURES = ["lightweight", "minimal", "moderate", "advanced"];
 export const FORM_MODES = ["page", "modal", "sidepanel", "inline"];
 export const RECIPES = ["resource", "module", "page"];
 export const CRUD_MODES = ["full", "insert-only"];

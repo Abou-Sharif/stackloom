@@ -42,7 +42,7 @@ import { format } from "date-fns";
 <% function zodType(f) {
   switch (f.type) {
     case 'number': case 'range': {
-      let s = 'z.number()';
+      let s = 'z.coerce.number()';
       if (f.validation.min !== undefined) s += `.min(${f.validation.min})`;
       if (f.validation.max !== undefined) s += `.max(${f.validation.max})`;
       return s;

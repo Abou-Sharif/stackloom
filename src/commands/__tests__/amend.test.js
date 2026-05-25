@@ -50,7 +50,7 @@ describe("loom generate resource --amend", () => {
     try {
       await generateResource("resource", "Product", {
         fields: "name:string:required",
-        arch: "lightweight",
+        arch: "minimal",
         noFrontend: true,
         frontend: false,
         reporter: silent(),
@@ -77,7 +77,7 @@ describe("loom generate resource --amend", () => {
       await generateResource("resource", "Product", {
         amend: true,
         fields: "sku:string:required",
-        arch: "lightweight",
+        arch: "minimal",
         noFrontend: true,
         frontend: false,
         force: true,
@@ -107,7 +107,7 @@ describe("loom generate resource --amend", () => {
     try {
       await generateResource("resource", "Item", {
         fields: "name:string;qty:number",
-        arch: "lightweight",
+        arch: "minimal",
         frontend: false,
         reporter: silent(),
         brief: true,
@@ -116,7 +116,7 @@ describe("loom generate resource --amend", () => {
       await generateResource("resource", "Item", {
         amend: true,
         removeFields: "qty",
-        arch: "lightweight",
+        arch: "minimal",
         frontend: false,
         force: true,
         reporter: silent(),
@@ -144,7 +144,7 @@ describe("loom generate resource --amend", () => {
     try {
       await generateResource("resource", "Widget", {
         fields: "name:string",
-        arch: "lightweight",
+        arch: "minimal",
         frontend: false,
         reporter: silent(),
         brief: true,
@@ -164,7 +164,7 @@ describe("loom generate resource --amend", () => {
       await generateResource("resource", "Widget", {
         amend: true,
         fields: "code:string",
-        arch: "lightweight",
+        arch: "minimal",
         frontend: false,
         reporter: silent(),
         brief: true,

@@ -1,6 +1,6 @@
-<% if (options.architecture === 'lightweight') { -%>
+<% if (options.architecture === 'minimal') { -%>
 <% const _refPopulate = resource.fields.filter(function(f) { return f.type === 'ref' || f.type === 'reference'; }); -%>
-// Lightweight architecture — CRUD logic lives inline here; no separate service layer.
+// Minimal architecture — CRUD logic lives inline here; no separate service layer.
 const <%= resource.pascalName %> = require('../models/<%= resource.name %>');
 const ApiResponse = require('../../../utils/ApiResponse');
 const ApiError = require('../../../utils/ApiError');

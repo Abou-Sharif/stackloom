@@ -56,7 +56,7 @@ describe("RecipeLoader", () => {
   it("loads the built-in resource recipe", async () => {
     const recipe = await recipeLoader.load("resource");
     expect(recipe.name).toBe("resource");
-    expect(recipe.data.files.length).toBe(14);
+    expect(recipe.data.files.length).toBe(19);
     expect(recipe.data.inject.length).toBe(4);
     expect(recipe.data.requires.length).toBe(1);
   });
@@ -79,7 +79,7 @@ describe("Recipe.plan", () => {
     const plan = recipe.plan({ context: {} });
     expect(plan.context.withFrontend).toBe(true);
     expect(plan.context.withTests).toBe(false);
-    expect(plan.context.architecture).toBe("moderate");
+    expect(plan.context.architecture).toBe("lightweight");
     expect(plan.context.formMode).toBe("page");
   });
 
@@ -94,7 +94,7 @@ describe("Recipe.plan", () => {
       projectRoot: os.tmpdir(),
       vars,
     });
-    expect(backendOnly.files.length).toBe(5);
+    expect(backendOnly.files.length).toBe(4);
     expect(backendOnly.inject.length).toBe(1);
     expect(backendOnly.requires.length).toBe(0);
     expect(backendOnly.files[0].out).toBe(
@@ -102,7 +102,7 @@ describe("Recipe.plan", () => {
     );
 
     const full = recipe.plan({
-      context: { withFrontend: true, withTests: true, "hasField:slug": true },
+      context: { withFrontend: true, withTests: true, "hasField:slug": true, architecture: "moderate" },
       blueprint,
       projectRoot: os.tmpdir(),
       vars,
@@ -133,7 +133,7 @@ describe("Recipe.plan", () => {
     const blueprint = await blueprintLoader.load(os.tmpdir());
     const planFor = (formMode) =>
       recipe.plan({
-        context: { withFrontend: true, formMode },
+        context: { withFrontend: true, formMode, architecture: "moderate" },
         blueprint,
         projectRoot: os.tmpdir(),
         vars: { kebab: "order", Name: "Order" },

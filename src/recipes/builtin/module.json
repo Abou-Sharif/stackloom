@@ -3,15 +3,19 @@
   "description": "Backend-only module: Mongoose model, service, controller, routes, validator. No frontend.",
   "params": {
     "withTests": { "type": "boolean", "default": false, "description": "Generate backend test files." },
-    "architecture": { "type": "string", "default": "moderate", "description": "lightweight | moderate | advanced." }
+    "architecture": { "type": "string", "default": "lightweight", "description": "lightweight | minimal | moderate | advanced." }
   },
   "files": [
-    { "template": "resource/model.js.ejs", "out": "{@backend.modules}/{kebab}/models/{Name}.js" },
-    { "template": "resource/service.js.ejs", "out": "{@backend.modules}/{kebab}/services/{Name}.service.js", "when": "architecture != \"lightweight\"" },
-    { "template": "resource/controller.js.ejs", "out": "{@backend.modules}/{kebab}/controllers/{Name}.controller.js" },
-    { "template": "resource/routes.js.ejs", "out": "{@backend.modules}/{kebab}/routes/{Name}.routes.js" },
-    { "template": "resource/validator.js.ejs", "out": "{@backend.validators}/{Name}.validator.js" },
-    { "template": "resource/test.ejs", "out": "{@backend.modules}/{kebab}/tests/{Name}.test.js", "when": "architecture != \"lightweight\" && (withTests || architecture == \"advanced\")" }
+    { "template": "resource/lightweight-model.js.ejs", "out": "{@backend.modules}/{kebab}/models/{Name}.js", "when": "architecture == \"lightweight\"" },
+    { "template": "resource/model.js.ejs", "out": "{@backend.modules}/{kebab}/models/{Name}.js", "when": "architecture != \"lightweight\"" },
+    { "template": "resource/service.js.ejs", "out": "{@backend.modules}/{kebab}/services/{Name}.service.js", "when": "architecture != \"lightweight\" && architecture != \"minimal\"" },
+    { "template": "resource/lightweight-controller.js.ejs", "out": "{@backend.modules}/{kebab}/controllers/{Name}.controller.js", "when": "architecture == \"lightweight\"" },
+    { "template": "resource/controller.js.ejs", "out": "{@backend.modules}/{kebab}/controllers/{Name}.controller.js", "when": "architecture != \"lightweight\"" },
+    { "template": "resource/lightweight-routes.js.ejs", "out": "{@backend.modules}/{kebab}/routes/{Name}.routes.js", "when": "architecture == \"lightweight\"" },
+    { "template": "resource/routes.js.ejs", "out": "{@backend.modules}/{kebab}/routes/{Name}.routes.js", "when": "architecture != \"lightweight\"" },
+    { "template": "resource/lightweight-validator.js.ejs", "out": "{@backend.validators}/{Name}.validator.js", "when": "architecture == \"lightweight\"" },
+    { "template": "resource/validator.js.ejs", "out": "{@backend.validators}/{Name}.validator.js", "when": "architecture != \"lightweight\"" },
+    { "template": "resource/test.ejs", "out": "{@backend.modules}/{kebab}/tests/{Name}.test.js", "when": "architecture != \"lightweight\" && architecture != \"minimal\" && (withTests || architecture == \"advanced\")" }
   ],
   "inject": [
     { "anchor": "backend.routes", "template": "snippets/route-mount.ejs" }

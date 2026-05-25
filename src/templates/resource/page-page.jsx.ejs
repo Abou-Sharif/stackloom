@@ -40,8 +40,8 @@ export default function <%= resource.pascalName %>ListPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [serverErrors, setServerErrors] = useState(null);
-<% if (_refFields.length) { -%>
   const [refOptions, setRefOptions] = useState({});
+<% if (_refFields.length) { -%>
   useEffect(() => {
 <% _refFields.forEach(function(f) { const model = f.special && f.special.model; if (!model) return; const ep = utils.kebab(model) + 's'; -%>
     axiosInstance.get('/<%- ep %>?limit=200')

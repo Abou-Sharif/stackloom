@@ -118,6 +118,14 @@ export class FieldDefinition {
     this.special = data.special || {};
     this.ui = data.ui || {};
 
+    // Normalize regex pattern: ensure / delimiters for JS regex literals in generated code
+    if (this.validation.pattern && typeof this.validation.pattern === 'string') {
+      const p = this.validation.pattern.trim();
+      if (!p.startsWith('/')) {
+        this.validation.pattern = '/' + p + '/';
+      }
+    }
+
     // Derived properties
     this.formInputType = fieldTypeToFormInput(this.type);
     this.mongooseType = fieldTypeToMongoose(this.type);

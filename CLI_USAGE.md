@@ -641,55 +641,148 @@ comments, no `.loom` metadata.
 
 ## Field spec format
 
+Each field follows `fieldName:type:rule1|rule2`:
+
 ```bash
---fields "fieldName:type:rule1|rule2;fieldName2:type2:rule"
+--fields "name:string:required;price:number:required|min=0;category:ref[Category]"
 ```
 
-### Supported types
+### Type aliases
 
-| Type | Description |
-| ---- | ----------- |
-| `string` | Text input |
-| `text` | Textarea |
-| `number` | Numeric input |
-| `boolean` | Checkbox / toggle |
-| `email` | Email with validation |
-| `password` | Password input |
-| `phone` | Phone input with formatting |
-| `url` | URL with validation |
-| `date` | Date picker |
-| `datetime` | Date + time picker |
-| `color` | Color picker |
-| `file` | File upload |
-| `image` | Image upload with preview |
-| `select` | Dropdown select |
-| `ref[Model]` | MongoDB ObjectId reference (e.g., `ref[Category]`) |
+| Alias | Resolves to |
+| ----- | ----------- |
+| `str` | `string` |
+| `num` | `number` |
+| `bool` | `boolean` |
+
+### Supported types (22 total)
+
+| Type | Form input | Mongoose | Notes |
+| ---- | ---------- | -------- | ----- |
+| `string` | Text | String | Default type |
+| `text` | Textarea | String | Long text |
+| `richtext` | Textarea | String | Full-text indexed |
+| `number` | Number | Number | — |
+| `range` | Range slider | Number | — |
+| `boolean` | Checkbox | Boolean | — |
+| `date` | Date picker | Date | Installs date-fns + react-day-picker |
+| `datetime` | Date + time picker | Date | Installs date-fns + react-day-picker |
+| `time` | Time input | String | — |
+| `email` | Email | String | Built-in email validation |
+| `password` | Password | String | Min 8 chars validation |
+| `phone` | Tel | String | E.164 format validation |
+| `url` | URL | String | URL validation |
+| `color` | Color picker | String | Hex color |
+| `file` | File upload | String | Configurable upload dir + size limit |
+| `image` | Image upload + preview | String | Configurable upload dir + size limit |
+| `select[opt1,opt2]` | Dropdown | String | Enum options in brackets |
+| `multiselect[opt1,opt2]` | Multi-select | Array | Multiple enum values |
+| `ref[Model]` | Searchable combobox | ObjectId | MongoDB reference, fetches from API |
+| `reference[Model]` | Searchable combobox | ObjectId | Alias for ref |
+| `array` | Text | Array | Mongoose array |
+| `object` | Text | Object | Mongoose nested object |
+
+### Bracket syntax for special types
+
+Some types accept bracket `[…]` content after the type name:
+
+| Syntax | Example | Effect |
+| ------ | ------- | ------ |
+| `select[opt1,opt2]` | `status:select[pending,active,archived]` | Dropdown with predefined choices |
+| `multiselect[opt1,opt2]` | `tags:multiselect[node,vue,react]` | Multi-select with predefined choices |
+| `ref[Model]` | `category:ref[Category]` | MongoDB ObjectId referencing another model |
+| `image[dir;max=N]` | `avatar:image[avatars;max=2mb]` | Upload directory + max file size |
+| `file[dir;max=N]` | `resume:file[docs;max=10mb]` | Upload directory + max file size |
+
+### Inline bracket rules (alternative to pipe syntax)
+
+Instead of `|`-separated rules, use `[key=value,flag]` after the type:
+
+```bash
+# Inline bracket: min, max, pattern, default, required, unique
+price:number[min=0,max=9999]
+code:string[pattern=/^[A-Z]+$/,required]
+quantity:number[min=1,default=0]
+startDate:date[min=2024-01-01]
+```
+
+Works for all types **except** `ref[Model]`, `select`, `multiselect`, `image`, `file`.
 
 ### Validation rules
 
-| Rule | Description |
-| ---- | ----------- |
-| `required` | Field is mandatory |
-| `unique` | Unique value in collection |
-| `minLength=N` | Minimum string length |
-| `maxLength=N` | Maximum string length |
-| `min=N` | Minimum numeric value |
-| `max=N` | Maximum numeric value |
-| `pattern=REGEX` | Regex pattern validation |
+| Rule | Example | Effect |
+| ---- | ------- | ------ |
+| `required` | `name:string:required` | Field is mandatory |
+| `unique` | `email:email:unique` | Mongoose unique index, duplicate check on save |
+| `minLength=N` | `name:string:minLength=2` | Minimum string length |
+| `maxLength=N` | `bio:text:maxLength=500` | Maximum string length |
+| `min=N` | `age:number:min=0` | Minimum numeric or date value |
+| `max=N` | `price:number:max=9999` | Maximum numeric or date value |
+| `pattern=REGEX` | `code:string:pattern=/^[A-Z]+$/` | Regex validation (Mongoose match + Joi pattern + Zod regex) |
+| `default=X` | `status:string:default=active` | Default value for the field |
 
-### Examples
+### Full examples
 
 ```bash
---fields "email:email:required|unique;age:number:min=0;role:select"
---fields "name:string:required|minLength=2|maxLength=100;price:number:required|min=0"
---fields "categoryId:ref[Category]:required;tags:string"
+# Simple
+--fields "name:string;age:number;active:boolean"
+
+# With validation
+--fields "email:email:required|unique;age:number:required|min=18|max=120"
+--fields "code:string:required|minLength=2|maxLength=50|pattern=/^[A-Z]+$/"
+
+# Type aliases
+--fields "name:str;count:num;active:bool"
+
+# Reference fields
+--fields "category:ref[Category]:required;department:reference[Department]"
+
+# Select/Multiselect with options
+--fields "status:select[pending,active,archived]:required|default=active"
+--fields "tags:multiselect[node,vue,react]"
+
+# Upload types with directory and size limit
+--fields "avatar:image[avatars;max=2mb];resume:file[docs;max=10mb]"
+
+# Inline bracket rules (alternative to pipe syntax)
+--fields "price:number[min=0,max=9999,required]"
+--fields "code:string[pattern=/^[A-Z]+$/,required]"
 ```
+
+### Auto field type inference
+
+Interactive mode suggests the field type based on name:
+
+| Name pattern | Suggested type |
+| ------------ | -------------- |
+| `email`, `mail` | email |
+| `phone`, `telephone`, `mobile` | phone |
+| `url`, `website` | url |
+| `password`, `passwd` | password |
+| `age`, `price`, `amount`, `count`, `rate`, `score`, `tax`, `fee`, `discount`, `balance`, `quantity`, `qty`, `duration`, `weight`, `size` | number |
+| `date`, `dob`, `startDate`, `endDate`, `dueDate` | date |
+| `is*`, `has*`, `active`, `enabled`, `visible`, `published` | boolean |
+| `color`, `hex` | color |
+| `image`, `photo`, `avatar`, `icon`, `logo` | image |
+| `file`, `attachment`, `document`, `resume` | file |
+| `description`, `notes`, `comment`, `bio`, `content`, `message` | text |
+| `name`, `title`, `slug`, `code`, `sku`, `tag`, `category`, `type`, `status`, `role`, `address`, `city`, `country` | string |
 
 ---
 
 ## Relations spec
 
-Virtual `hasMany` relations for Mongoose populate.
+Two kinds of relations:
+
+### belongsTo (3 parts)
+
+```bash
+--relations "employee:belongsTo:Employee"
+```
+
+Creates a `ref[Employee]` field named `employee` on the current model, wires up the combobox form input that fetches options from the referenced model's API. The `belongsTo` relation is the recommended way to create ref fields.
+
+### hasMany / virtual populate (4 parts)
 
 ```bash
 --relations "orders:hasMany:Order:customerId"
@@ -697,14 +790,17 @@ Virtual `hasMany` relations for Mongoose populate.
 
 Format: `virtualFieldName:hasMany:ChildPascalModel:foreignKeyOnChild`
 
-Multiple relations separated with `;`:
+Adds a Mongoose virtual populate to the parent model so `parent.orders`
+resolves to all `Order` docs where `order.customerId === parent._id`.
+The detail page shows linked records in a related card.
+
+### Multiple relations
+
+Separated with `;`:
 
 ```bash
---relations "orders:hasMany:Order:customerId;reviews:hasMany:Review:productId"
+--relations "employee:belongsTo:Employee;orders:hasMany:Order:customerId"
 ```
-
-The relation adds a Mongoose virtual to the parent model so `parent.orders`
-resolves to all `Order` docs where `order.customerId === parent._id`.
 
 ---
 
