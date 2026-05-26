@@ -32,9 +32,9 @@ const SCENARIO_TYPES = [
 ];
 
 function loadBlueprintPrompt() {
-  const builtIn = path.join(CLI_ROOT, ".loom", "ai", "master-prompt-blueprint.md");
+  const bundled = path.join(CLI_ROOT, "src", "commands", "ai", "prompts", "master-prompt-blueprint.md");
   const cwdPrompt = path.join(process.cwd(), ".loom", "ai", "master-prompt-blueprint.md");
-  const file = fs.existsSync(cwdPrompt) ? cwdPrompt : builtIn;
+  const file = fs.existsSync(cwdPrompt) ? cwdPrompt : bundled;
   return fs.readFileSync(file, "utf-8");
 }
 

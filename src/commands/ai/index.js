@@ -56,9 +56,9 @@ export const AI_COMMAND_TIERS = {
 };
 
 export function loadMasterPrompt() {
-  const builtIn = path.join(CLI_ROOT, ".loom", "ai", "master-prompt.md");
+  const bundled = path.join(CLI_ROOT, "src", "commands", "ai", "prompts", "master-prompt.md");
   const cwdPrompt = path.join(process.cwd(), ".loom", "ai", "master-prompt.md");
-  const file = existsSync(cwdPrompt) ? cwdPrompt : builtIn;
+  const file = existsSync(cwdPrompt) ? cwdPrompt : bundled;
   return readFileSync(file, "utf-8");
 }
 
